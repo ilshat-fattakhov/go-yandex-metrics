@@ -38,17 +38,16 @@ func isset(arr []string, index int) bool {
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
-		//w.WriteHeader(http.StatusMethodNotAllowed)
-		w.WriteHeader(http.StatusInternalServerError)
-
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		//w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// Принимать данные в формате Content-Type: text/plain
 	contentType := r.Header.Get("Content-type")
 	if contentType != "text/plain" {
-		//w.WriteHeader(http.StatusBadRequest)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
+		//w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -63,7 +62,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(urlParts.Path)
 
 	pathParts := strings.Split(urlParts.Path, "/")
-
+	fmt.Println(pathParts)
 	mType, mName, mValue := "", "", ""
 	if isset(pathParts, 2) {
 		mType = pathParts[2]
@@ -84,10 +83,10 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 			if mValue != "" {
 				err := m.save(mType, mName, mValue)
 				if err != nil {
-					fmt.Fprint(w, err)
+					//fmt.Fprint(w, err)
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
 					//w.WriteHeader(http.StatusBadRequest)
-					w.WriteHeader(http.StatusInternalServerError)
+					w.WriteHeader(http.StatusBadRequest)
 					return
 				} else {
 					w.Header().Set("content-type", "text/plain")
@@ -111,7 +110,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
 		//w.WriteHeader(http.StatusBadRequest)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		//w.WriteHeader(http.StatusPaymentRequired)
 	}
 }
