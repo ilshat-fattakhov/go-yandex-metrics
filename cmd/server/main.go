@@ -96,7 +96,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
-		w.WriteHeader(http.StatusBadRequest)
+		//w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusEarlyHints)
 		return
 	}
 }
