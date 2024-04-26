@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -19,6 +20,11 @@ var m = new(MemStorage)
 
 func main() {
 
+	//RequestURI := "http://localhost:8080/update/counter/c2/40.22"
+	//urlPart := strings.Split(RequestURI, "/")
+	//fmt.Println(urlPart)
+	//return
+
 	m.counter = make(map[string]int64)
 	m.gauge = make(map[string]float64)
 
@@ -26,7 +32,9 @@ func main() {
 	http.HandleFunc("/update/", updateHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
-
+func isset(arr []string, index int) bool {
+	return (len(arr) > index)
+}
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
@@ -42,16 +50,30 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
-	urlPart := strings.Split(r.RequestURI, "/")
 
-	if len(urlPart) < 4 {
+	urlParts, err := url.ParseRequestURI(r.RequestURI)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	fmt.Println(urlParts.Path)
 
-	mType := urlPart[2]
-	mName := urlPart[3]
-	mValue := urlPart[4]
+	pathParts := strings.Split(urlParts.Path, "/")
+
+	mType, mName, mValue := "", "", ""
+	if isset(pathParts, 2) {
+		mType = pathParts[2]
+	}
+	if isset(pathParts, 3) {
+		mName = pathParts[3]
+	}
+	if isset(pathParts, 4) {
+		mValue = pathParts[4]
+	}
+	if mType == "" && mName == "" && mValue == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	if mType == "gauge" || mType == "counter" {
 		if mName != "" {
@@ -69,8 +91,9 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			} else {
-				// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
-				w.WriteHeader(http.StatusBadRequest)
+				// При попытке передать запрос с пустым значением возвращать http.StatusBadRequest
+				w.WriteHeader(http.StatusNotFound)
+				//w.WriteHeader(http.StatusPaymentRequired)
 				return
 			}
 		} else {
@@ -81,6 +104,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
 		w.WriteHeader(http.StatusBadRequest)
+		//w.WriteHeader(http.StatusPaymentRequired)
 	}
 }
 
