@@ -28,7 +28,7 @@ func main() {
 	m.counter = make(map[string]int64)
 	m.gauge = make(map[string]float64)
 
-	http.HandleFunc("/", indexHandler)
+	//http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/update/", updateHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -38,14 +38,17 @@ func isset(arr []string, index int) bool {
 func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		//w.WriteHeader(http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
 	// Принимать данные в формате Content-Type: text/plain
 	contentType := r.Header.Get("Content-type")
 	if contentType != "text/plain" {
-		w.WriteHeader(http.StatusBadRequest)
+		//w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -53,7 +56,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 
 	urlParts, err := url.ParseRequestURI(r.RequestURI)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		//w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	fmt.Println(urlParts.Path)
@@ -82,28 +86,32 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					fmt.Fprint(w, err)
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
-					w.WriteHeader(http.StatusBadRequest)
+					//w.WriteHeader(http.StatusBadRequest)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				} else {
 					w.Header().Set("content-type", "text/plain")
 					w.Header().Set("charset", "utf-8")
-					w.WriteHeader(http.StatusOK)
+					//w.WriteHeader(http.StatusOK)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 			} else {
 				// При попытке передать запрос с пустым значением возвращать http.StatusBadRequest
-				w.WriteHeader(http.StatusNotFound)
-				//w.WriteHeader(http.StatusPaymentRequired)
+				//w.WriteHeader(http.StatusNotFound)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 		} else {
 			// При попытке передать запрос без имени метрики возвращать http.StatusNotFound
 			w.WriteHeader(http.StatusNotFound)
+			//w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
-		w.WriteHeader(http.StatusBadRequest)
+		//w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		//w.WriteHeader(http.StatusPaymentRequired)
 	}
 }
