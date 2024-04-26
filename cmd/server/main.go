@@ -36,13 +36,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Принимать данные в формате Content-Type: text/plain ???
-	contentType := r.Header.Get("Content-type")
-	if contentType != "text/plain" {
-		//w.WriteHeader(http.StatusBadRequest)
-		//return
-	}
-
 	// Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 
 	urlParts, err := url.ParseRequestURI(r.RequestURI)
@@ -74,7 +67,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				err := m.save(mType, mName, mValue)
 				if err != nil {
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
-					//w.WriteHeader(http.StatusBadRequest)
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				} else {
@@ -85,7 +77,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				// При попытке передать запрос с пустым значением возвращать http.StatusBadRequest
-				//w.WriteHeader(http.StatusBadRequest)
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -96,7 +87,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
-		//w.WriteHeader(http.StatusBadRequest)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
