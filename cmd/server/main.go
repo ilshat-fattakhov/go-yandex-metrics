@@ -75,7 +75,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
 					//w.WriteHeader(http.StatusBadRequest)
-					w.WriteHeader(http.StatusContinue)
+					w.WriteHeader(http.StatusBadRequest)
 					return
 				} else {
 					w.Header().Set("content-type", "text/plain")
@@ -86,7 +86,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				// При попытке передать запрос с пустым значением возвращать http.StatusBadRequest
 				//w.WriteHeader(http.StatusBadRequest)
-				w.WriteHeader(http.StatusSwitchingProtocols)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 		} else {
@@ -97,7 +97,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
 		//w.WriteHeader(http.StatusBadRequest)
-		w.WriteHeader(http.StatusEarlyHints)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
