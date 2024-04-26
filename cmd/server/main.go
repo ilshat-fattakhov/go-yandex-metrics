@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -27,7 +28,6 @@ func main() {
 }
 
 func updateHandler(w http.ResponseWriter, r *http.Request) {
-
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -43,6 +43,12 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 	urlPart := strings.Split(r.RequestURI, "/")
+
+	if len(urlPart) < 4 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	mType := urlPart[2]
 	mName := urlPart[3]
 	mValue := urlPart[4]
@@ -52,15 +58,14 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 			if mValue != "" {
 				err := m.save(mType, mName, mValue)
 				if err != nil {
-					//fmt.Fprint(w, err)
+					fmt.Fprint(w, err)
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				} else {
-					//fmt.Fprint(w, m)
-					w.WriteHeader(http.StatusOK)
 					w.Header().Set("content-type", "text/plain")
 					w.Header().Set("charset", "utf-8")
+					w.WriteHeader(http.StatusOK)
 					return
 				}
 			} else {
@@ -77,7 +82,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	return
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
