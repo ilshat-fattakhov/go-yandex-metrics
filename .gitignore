@@ -20,6 +20,7 @@ cmd/server/server
 # Dependency directories (remove the comment below to include it)
 vendor/
 tests/
+go-resty/
 
 # IDEs directories
 .idea
