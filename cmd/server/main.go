@@ -74,7 +74,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				err := m.save(mType, mName, mValue)
 				if err != nil {
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
-					w.WriteHeader(http.StatusBadRequest)
+					//w.WriteHeader(http.StatusBadRequest)
+					w.WriteHeader(http.StatusContinue)
 					return
 				} else {
 					w.Header().Set("content-type", "text/plain")
@@ -84,7 +85,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				// При попытке передать запрос с пустым значением возвращать http.StatusBadRequest
-				w.WriteHeader(http.StatusBadRequest)
+				//w.WriteHeader(http.StatusBadRequest)
+				w.WriteHeader(http.StatusSwitchingProtocols)
 				return
 			}
 		} else {
