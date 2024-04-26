@@ -92,8 +92,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				} else {
 					w.Header().Set("content-type", "text/plain")
 					w.Header().Set("charset", "utf-8")
-					//w.WriteHeader(http.StatusOK)
-					w.WriteHeader(http.StatusInternalServerError)
+					w.WriteHeader(http.StatusOK)
+					//w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 			} else {
