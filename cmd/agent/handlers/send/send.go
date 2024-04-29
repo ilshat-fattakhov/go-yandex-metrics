@@ -38,7 +38,7 @@ func SendMetrics() {
 	}
 
 	// send counter metrics
-	for n, _ := range storage.CounterMetrics {
+	for n := range storage.CounterMetrics {
 		// PollCount (тип counter) — счётчик, увеличивающийся на 1 при каждом обновлении метрики
 		// из пакета runtime на каждый pollInterval
 		url := "http://localhost:8080/update/counter/" + n + "/1"
