@@ -1,3 +1,3 @@
-module github.com/ilshat-fattakhov/go-yandex-metrics
+module go-yandex-metrics
 
-go 1.21.9
+go 1.19.1

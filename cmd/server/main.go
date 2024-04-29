@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -30,6 +31,7 @@ func isset(arr []string, index int) bool {
 	return (len(arr) > index)
 }
 func updateHandler(w http.ResponseWriter, r *http.Request) {
+
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -73,6 +75,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("content-type", "text/plain")
 					w.Header().Set("charset", "utf-8")
 					w.WriteHeader(http.StatusOK)
+					fmt.Println(m.counter)
 					return
 				}
 			} else {
