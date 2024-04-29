@@ -28,7 +28,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Println("Тик")
+				//fmt.Println("Тик")
 				save.SaveMetrics(m)
 			case <-stop:
 				fmt.Println("Закрытие горутины")
@@ -42,10 +42,8 @@ func main() {
 		defer func() { stop <- true }()
 		for {
 			<-ticker.C
-			fmt.Println("Тooooк")
-
+			//fmt.Println("Тooooк")
 			send.SendMetrics()
-
 			time.Sleep(send.ReportInterval * time.Second)
 		}
 	}()

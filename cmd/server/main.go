@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -16,12 +16,12 @@ type MemStorage struct {
 	counter map[string]int64
 }
 
-var m = new(MemStorage)
+var m = MemStorage{
+	counter: make(map[string]int64),
+	gauge:   make(map[string]float64),
+}
 
 func main() {
-
-	m.counter = make(map[string]int64)
-	m.gauge = make(map[string]float64)
 
 	//http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/update/", updateHandler)
@@ -31,6 +31,8 @@ func isset(arr []string, index int) bool {
 	return (len(arr) > index)
 }
 func updateHandler(w http.ResponseWriter, r *http.Request) {
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
@@ -45,6 +47,8 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	logger.Info("We have a visitor: " + r.RequestURI)
 
 	pathParts := strings.Split(urlParts.Path, "/")
 
@@ -62,6 +66,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	logger.Info(" with mType: " + mType)
 
 	if mType == "gauge" || mType == "counter" {
 		if mName != "" {
@@ -72,10 +77,10 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				} else {
+					logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
 					w.Header().Set("content-type", "text/plain")
 					w.Header().Set("charset", "utf-8")
 					w.WriteHeader(http.StatusOK)
-					fmt.Println(m.counter)
 					return
 				}
 			} else {
@@ -89,15 +94,14 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		logger.Info(" and we are returning StatusBadRequest ")
+
 		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Welcome to Yandex Metrics!")
-}
 func (m *MemStorage) save(t, n, v string) error {
 
 	if t == "counter" {

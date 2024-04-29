@@ -2,13 +2,20 @@ package hadnlers
 
 import (
 	"go-yandex-metrics/cmd/agent/storage"
+	"log/slog"
 	"math/rand"
+	"os"
 	"runtime"
 )
 
 const PollInterval = 2 // Обновлять метрики из пакета runtime с заданной частотой: pollInterval — 2 секунды.
 
 func SaveMetrics(m *runtime.MemStats) {
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	//fmt.Println("Saving metrics...")
+	logger.Info("Saving metrics...")
 
 	storage.GaugeMetrics["Alloc"] = float64(m.Alloc)
 	storage.GaugeMetrics["BuckHashSys"] = float64(m.BuckHashSys)
