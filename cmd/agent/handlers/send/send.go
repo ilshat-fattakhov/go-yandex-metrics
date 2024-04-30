@@ -53,7 +53,7 @@ func SendMetrics() {
 		url := "http://localhost:8080/update/counter/" + n + "/1"
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
-			fmt.Printf("error %s", err)
+			logger.Info(fmt.Sprintf("error %s", err))
 			return
 		}
 
@@ -62,7 +62,7 @@ func SendMetrics() {
 
 		resp, err := c.Do(req)
 		if err != nil {
-			fmt.Printf("error %s", err)
+			logger.Info(fmt.Sprintf("error %s", err))
 			return
 		}
 
