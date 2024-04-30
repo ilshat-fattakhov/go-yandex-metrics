@@ -19,30 +19,30 @@ func SendMetrics() {
 	// send gauge metrics
 	logger.Info("Sending gauge metrics...")
 
-	//for n, v := range storage.GaugeMetrics {
+	for n, v := range storage.GaugeMetrics {
 
-	//	url := "http://localhost:8080/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
+		url := "http://localhost:8080/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
 
-	//	logger.Info("Sending to " + url)
+		logger.Info("Sending to " + url)
 
-	//	req, err := http.NewRequest("POST", url, nil)
-	//	if err != nil {
-	//		fmt.Printf("error %s", err)
-	//		return
-	//	}
+		req, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			logger.Info(fmt.Sprintf("error %s", err))
+			return
+		}
 
-	//	req.Header.Add("Content-Type", "text/plain")
-	//	req.Header.Add("Content-Length", "0")
+		req.Header.Add("Content-Type", "text/plain")
+		req.Header.Add("Content-Length", "0")
 
-	//	resp, err := c.Do(req)
-	//	if err != nil {
-	//		fmt.Printf("error %s", err)
-	//		return
-	//	}
+		resp, err := c.Do(req)
+		if err != nil {
+			logger.Info(fmt.Sprintf("error %s", err))
+			return
+		}
 
-	//	defer resp.Body.Close()
+		defer resp.Body.Close()
 
-	//}
+	}
 
 	// send counter metrics
 	logger.Info("Sending counter metrics...")
@@ -51,6 +51,7 @@ func SendMetrics() {
 		// PollCount (тип counter) — счётчик, увеличивающийся на 1 при каждом обновлении метрики
 		// из пакета runtime на каждый pollInterval
 		url := "http://localhost:8080/update/counter/" + n + "/1"
+		logger.Info("Sending to " + url)
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
 			logger.Info(fmt.Sprintf("error %s", err))
