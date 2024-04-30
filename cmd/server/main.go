@@ -1,13 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"go-yandex-metrics/cmd/agent/storage"
 	"log"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
-	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // данная структура хранит метрики
@@ -21,18 +23,103 @@ var m = MemStorage{
 	gauge:   make(map[string]float64),
 }
 
-func main() {
+var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	//http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/update/", updateHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+func updateRouter() chi.Router {
+	r := chi.NewRouter()
+	r.Post("/update/{mtype}/{mname}/{mvalue}", updateHandler) // POST /update/counter/PollCount/1
+	r.Get("/value/{mtype}/{mname}", getHandler)               // GET /value/counter/PollCount
+	r.Get("/", indexHandler)
+	return r
 }
+func main() {
+	log.Fatal(http.ListenAndServe(":8080", updateRouter()))
+}
+
 func isset(arr []string, index int) bool {
 	return (len(arr) > index)
 }
-func updateHandler(w http.ResponseWriter, r *http.Request) {
+func indexHandler(w http.ResponseWriter, r *http.Request) {
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	if r.Method != http.MethodGet {
+		// Принимаем запросы только по протоколу HTTP методом GET
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	logger.Info("Listing all counters with values...")
+
+	// По запросу GET http://<АДРЕС_СЕРВЕРА>/ сервер должен отдавать HTML-страницу
+	// со списком имён и значений всех известных ему на текущий момент метрик.
+	w.Write([]byte("Gauge:\n"))
+
+	for mName, mValue := range storage.GaugeMetrics {
+		w.Write([]byte(mName + ":" + fmt.Sprint(mValue) + "\n"))
+	}
+	w.Write([]byte("Counter:\n"))
+	for mName, mValue := range storage.CounterMetrics {
+		w.Write([]byte(mName + ":" + fmt.Sprint(mValue) + "\n"))
+	}
+}
+func getHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		// Принимаем запросы только по протоколу HTTP методом GET
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Принимать запрос в формате http://<АДРЕС_СЕРВЕРА>/value/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>
+
+	mType := chi.URLParam(r, "mtype")
+	mName := chi.URLParam(r, "mname")
+
+	logger.Info("We have a visitor: " + r.RequestURI)
+
+	if mType == "" && mName == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	logger.Info(" with mType: " + mType)
+
+	if mType == "gauge" || mType == "counter" {
+		mValue := getCounterValue(mType, mName)
+		if mValue == "" {
+			// При попытке запроса неизвестной метрики сервер должен возвращать http.StatusNotFound
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			logger.Info("Sending metrics to browser. Type: " + mType + " Name: " + mName + " Value: " + mValue)
+
+			w.Header().Set("content-type", "text/plain")
+			w.Header().Set("charset", "utf-8")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(mValue + "\n"))
+
+		}
+		return
+
+	} else {
+		// При попытке запроса неизвестной метрики сервер должен возвращать http.StatusNotFound.
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+}
+
+func getCounterValue(mType, mName string) string {
+	if mType == "gauge" {
+		if mValue, ok := storage.GaugeMetrics[mName]; ok {
+			return fmt.Sprint(mValue)
+		}
+	} else if mType == "counter" {
+		if mValue, ok := storage.GaugeMetrics[mName]; ok {
+			return fmt.Sprint(mValue)
+		}
+	}
+	return ""
+}
+
+func updateHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		// Принимаем метрики только по протоколу HTTP методом POST
@@ -42,26 +129,12 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 
-	urlParts, err := url.ParseRequestURI(r.RequestURI)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	mType := chi.URLParam(r, "mtype")
+	mName := chi.URLParam(r, "mname")
+	mValue := chi.URLParam(r, "mvalue")
 
 	logger.Info("We have a visitor: " + r.RequestURI)
 
-	pathParts := strings.Split(urlParts.Path, "/")
-
-	mType, mName, mValue := "", "", ""
-	if isset(pathParts, 2) {
-		mType = pathParts[2]
-	}
-	if isset(pathParts, 3) {
-		mName = pathParts[3]
-	}
-	if isset(pathParts, 4) {
-		mValue = pathParts[4]
-	}
 	if mType == "" && mName == "" && mValue == "" {
 		w.WriteHeader(http.StatusOK)
 		return
