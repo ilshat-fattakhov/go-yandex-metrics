@@ -23,6 +23,8 @@ func SendMetrics() {
 
 		url := "http://localhost:8080/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
 
+		logger.Info("Sending to " + url)
+
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
 			fmt.Printf("error %s", err)
