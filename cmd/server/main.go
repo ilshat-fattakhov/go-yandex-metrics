@@ -2,26 +2,14 @@ package main
 
 import (
 	"fmt"
-	"go-yandex-metrics/cmd/agent/storage"
+	"go-yandex-metrics/internal/storage"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
-
-// данная структура хранит метрики
-type MemStorage struct {
-	gauge   map[string]float64
-	counter map[string]int64
-}
-
-var m = MemStorage{
-	counter: make(map[string]int64),
-	gauge:   make(map[string]float64),
-}
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -32,13 +20,13 @@ func updateRouter() chi.Router {
 	r.Get("/", indexHandler)
 	return r
 }
+
+var m = storage.NewMemStorage()
+
 func main() {
 	log.Fatal(http.ListenAndServe(":8080", updateRouter()))
 }
 
-func isset(arr []string, index int) bool {
-	return (len(arr) > index)
-}
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
@@ -144,7 +132,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if mType == "gauge" || mType == "counter" {
 		if mName != "" {
 			if mValue != "" {
-				err := m.save(mType, mName, mValue)
+				err := m.Save(mType, mName, mValue)
 				if err != nil {
 					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
 					w.WriteHeader(http.StatusBadRequest)
@@ -173,32 +161,4 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-}
-
-func (m *MemStorage) save(t, n, v string) error {
-
-	if t == "counter" {
-
-		// в случае если мы по какой-то причине получили число с плавающей точкой
-		vFloat64, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return err
-		}
-		vInt64 := int64(vFloat64)
-		// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
-		m.counter[n] += vInt64
-		return nil
-
-	} else if t == "gauge" {
-
-		vFloat64, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return err
-		}
-		// новое значение должно замещать предыдущее
-		m.gauge[n] = vFloat64
-		return nil
-
-	}
-	return nil
 }

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"fmt"
-	"go-yandex-metrics/cmd/agent/storage"
+	"go-yandex-metrics/internal/storage"
 	"log/slog"
 	"net/http"
 	"os"

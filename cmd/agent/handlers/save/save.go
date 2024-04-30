@@ -1,7 +1,7 @@
 package hadnlers
 
 import (
-	"go-yandex-metrics/cmd/agent/storage"
+	"go-yandex-metrics/internal/storage"
 	"log/slog"
 	"math/rand"
 	"os"
