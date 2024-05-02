@@ -29,7 +29,7 @@ func main() {
 	stopSave := make(chan bool)
 
 	go func() {
-		defer func() { stopSave <- true }()
+		//defer func() { stopSave <- true }()
 		logger.Info("Starting ticker function...")
 
 		for {
