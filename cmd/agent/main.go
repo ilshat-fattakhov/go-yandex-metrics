@@ -41,7 +41,7 @@ func main() {
 				logger.Info("Tock...")
 				go send.SendMetrics()
 			case <-c:
-				logger.Info("Closig goroutine...")
+				logger.Info("Closing goroutine...")
 				return
 			}
 		}

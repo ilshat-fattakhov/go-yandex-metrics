@@ -65,6 +65,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("We have a visitor: " + r.RequestURI)
 
 	if mType == "" && mName == "" {
+		logger.Info("No metric type and no metric name")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -73,7 +74,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	if mType == "gauge" || mType == "counter" {
 		mValue := getCounterValue(mType, mName)
 		if mValue == "" {
-			// При попытке запроса неизвестной метрики сервер должен возвращать http.StatusNotFound
+			logger.Info("При попытке запроса метрики без значения сервер должен возвращать http.StatusNotFound ?")
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			logger.Info("Sending metrics to browser. Type: " + mType + " Name: " + mName + " Value: " + mValue)
@@ -89,6 +90,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 		// При попытке запроса неизвестной метрики сервер должен возвращать http.StatusNotFound.
+		logger.Info("При попытке запроса неизвестной метрики сервер должен возвращать http.StatusNotFound.")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -123,11 +125,12 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	mValue := chi.URLParam(r, "mvalue")
 
 	logger.Info("We have a visitor: " + r.RequestURI)
+	logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
 
-	if mType == "" && mName == "" && mValue == "" {
-		w.WriteHeader(http.StatusOK) // PROBABLY WRONG!!!
-		return
-	}
+	//if mType == "" && mName == "" && mValue == "" {
+	//	w.WriteHeader(http.StatusOK) // PROBABLY WRONG!!!
+	//	return
+	//}
 	//logger.Info(" with mType: " + mType)
 
 	if mType == "gauge" || mType == "counter" {
@@ -152,14 +155,12 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			// При попытке передать запрос без имени метрики возвращать http.StatusNotFound
+			logger.Info("При попытке передать запрос без имени метрики возвращать http.StatusNotFound")
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 	} else {
-		logger.Info(" and we are returning StatusBadRequest ")
-
-		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
+		logger.Info("При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
