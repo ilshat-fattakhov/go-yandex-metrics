@@ -15,11 +15,14 @@ var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 var m = storage.NewMemStorage()
 
 func main() {
-	r := chi.NewRouter()
-	r.Post("/update/{mtype}/{mname}/{mvalue}", updateHandler) // POST /update/counter/PollCount/1
-	r.Get("/value/{mtype}/{mname}", getHandler)               // GET /value/counter/PollCount
-	r.Get("/", indexHandler)
-	log.Fatal(http.ListenAndServe(":8080", r))
+	router := chi.NewRouter()
+	router.Post("/update/{mtype}/{mname}/{mvalue}", updateHandler) // POST /update/counter/PollCount/1
+	router.Get("/value/{mtype}/{mname}", getHandler)               // GET /value/counter/PollCount
+	router.Get("/", indexHandler)
+
+	//logger.Info("Getting values from chi: " + mType + " Name: " + mName + " Value: " + mValue)
+
+	log.Fatal(http.ListenAndServe(":8080", router))
 	//log.Fatal(http.ListenAndServe(":8080", updateRouter()))
 }
 
