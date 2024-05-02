@@ -12,19 +12,15 @@ import (
 )
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+var m = storage.NewMemStorage()
 
-func updateRouter() chi.Router {
+func main() {
 	r := chi.NewRouter()
 	r.Post("/update/{mtype}/{mname}/{mvalue}", updateHandler) // POST /update/counter/PollCount/1
 	r.Get("/value/{mtype}/{mname}", getHandler)               // GET /value/counter/PollCount
 	r.Get("/", indexHandler)
-	return r
-}
-
-var m = storage.NewMemStorage()
-
-func main() {
-	log.Fatal(http.ListenAndServe(":8080", updateRouter()))
+	log.Fatal(http.ListenAndServe(":8080", r))
+	//log.Fatal(http.ListenAndServe(":8080", updateRouter()))
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
