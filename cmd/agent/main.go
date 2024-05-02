@@ -1,9 +1,10 @@
 package main
 
 import (
-	"fmt"
-	save "go-yandex-metrics/cmd/agent/handlers/save"
 	send "go-yandex-metrics/cmd/agent/handlers/send"
+	"log/slog"
+
+	save "go-yandex-metrics/cmd/agent/handlers/save"
 
 	//"go-yandex-metrics/cmd/agent/storage"
 
@@ -13,46 +14,44 @@ import (
 	"time"
 )
 
+var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 func main() {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c)
+	cSave := make(chan os.Signal, 1)
+	signal.Notify(cSave)
 
-	ticker := time.NewTicker(time.Second)
-	stop := make(chan bool)
+	tickerSave := time.NewTicker(save.PollInterval * time.Second)
+	tickerSend := time.NewTicker(send.ReportInterval * time.Second)
+
+	stopSave := make(chan bool)
 
 	go func() {
-		defer func() { stop <- true }()
+		defer func() { stopSave <- true }()
+		logger.Info("Starting ticker function...")
+
 		for {
 			select {
-			case <-ticker.C:
-				//fmt.Println("Тик")
-				save.SaveMetrics(m)
-			case <-stop:
-				fmt.Println("Закрытие горутины")
+			case <-tickerSave.C:
+				logger.Info("Tick...")
+				go save.SaveMetrics(m)
+			case <-tickerSend.C:
+				logger.Info("Tock...")
+				go send.SendMetrics()
+			case <-stopSave:
+				logger.Info("Closig goroutine...")
 				return
 			}
-			time.Sleep(save.PollInterval * time.Second)
-		}
-	}()
-
-	go func() {
-		defer func() { stop <- true }()
-		for {
-			<-ticker.C
-			//fmt.Println("Тooooк")
-			send.SendMetrics()
-			time.Sleep(send.ReportInterval * time.Second)
 		}
 	}()
 	// Блокировка, пока не будет получен сигнал
-	<-c
-	ticker.Stop()
+	<-cSave
+	tickerSave.Stop()
 	// Остановка горутины
-	stop <- true
+	stopSave <- true
 	// Ожидание до тех пор, пока не выполнится
-	<-stop
-	fmt.Println("Приложение остановлено")
+	<-stopSave
+	logger.Info("Application stopped...")
 }

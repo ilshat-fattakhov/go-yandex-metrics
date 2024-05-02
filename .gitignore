@@ -21,6 +21,7 @@ cmd/server/server
 vendor/
 tests/
 go-resty/
+golangci-lint/
 
 # IDEs directories
 .idea
