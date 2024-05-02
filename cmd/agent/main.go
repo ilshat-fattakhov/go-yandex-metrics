@@ -20,13 +20,13 @@ func main() {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
-	cSave := make(chan os.Signal, 1)
-	signal.Notify(cSave)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c)
 
 	tickerSave := time.NewTicker(save.PollInterval * time.Second)
 	tickerSend := time.NewTicker(send.ReportInterval * time.Second)
 
-	stopSave := make(chan bool)
+	//stop := make(chan bool)
 
 	go func() {
 		//defer func() { stopSave <- true }()
@@ -40,18 +40,19 @@ func main() {
 			case <-tickerSend.C:
 				logger.Info("Tock...")
 				go send.SendMetrics()
-			case <-stopSave:
+			case <-c:
 				logger.Info("Closig goroutine...")
 				return
 			}
 		}
 	}()
 	// Блокировка, пока не будет получен сигнал
-	<-cSave
-	tickerSave.Stop()
+	<-c
+	//tickerSave.Stop()
+	//tickerSend.Stop()
 	// Остановка горутины
-	stopSave <- true
+	//stop <- true
 	// Ожидание до тех пор, пока не выполнится
-	<-stopSave
+	//<-stop
 	logger.Info("Application stopped...")
 }
