@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const ReportInterval = 10 //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
+const ReportInterval = 2 //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
 
 func SendMetrics() {
 

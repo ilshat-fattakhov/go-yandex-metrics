@@ -1,6 +1,7 @@
 package hadnlers
 
 import (
+	"go-yandex-metrics/internal/storage"
 	"log/slog"
 	"os"
 	"runtime"
@@ -15,7 +16,7 @@ func SaveMetrics(m *runtime.MemStats) {
 	//fmt.Println("Saving metrics...")
 	logger.Info("Saving metrics...")
 
-	//storage.GaugeMetrics["Alloc"] = float64(m.Alloc)
+	storage.GaugeMetrics["Alloc"] = float64(m.Alloc)
 	//storage.GaugeMetrics["BuckHashSys"] = float64(m.BuckHashSys)
 	//storage.GaugeMetrics["Frees"] = float64(m.Frees)
 	//storage.GaugeMetrics["GCCPUFraction"] = float64(m.GCCPUFraction)
