@@ -61,6 +61,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 
+	logger.Info("Get request. Type: " + mType + " Name: " + mName)
 	logger.Info("We have a visitor: " + r.RequestURI)
 
 	if mType == "" && mName == "" {
@@ -80,7 +81,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 
 			w.Header().Set("content-type", "text/plain")
 			w.Header().Set("charset", "utf-8")
-			w.Header().Set("content-length", "11")
+			//w.Header().Set("content-length", "11")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(mValue + "\n"))
 
@@ -121,6 +122,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
+	w.Write([]byte("Type:" + mType + ":end"))
 
 	logger.Info("We have a visitor: " + r.RequestURI)
 	logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
