@@ -1,3 +1,131 @@
 package main
 
-func main() {}
+import (
+	"log"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+)
+
+// данная структура хранит метрики
+type MemStorage struct {
+	gauge   map[string]float64
+	counter map[string]int64
+}
+
+var m = MemStorage{
+	counter: make(map[string]int64),
+	gauge:   make(map[string]float64),
+}
+
+func main() {
+
+	//http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/update/", updateHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+func isset(arr []string, index int) bool {
+	return (len(arr) > index)
+}
+func updateHandler(w http.ResponseWriter, r *http.Request) {
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	if r.Method != http.MethodPost {
+		// Принимаем метрики только по протоколу HTTP методом POST
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
+
+	urlParts, err := url.ParseRequestURI(r.RequestURI)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("We have a visitor: " + r.RequestURI)
+
+	pathParts := strings.Split(urlParts.Path, "/")
+
+	mType, mName, mValue := "", "", ""
+	if isset(pathParts, 2) {
+		mType = pathParts[2]
+	}
+	if isset(pathParts, 3) {
+		mName = pathParts[3]
+	}
+	if isset(pathParts, 4) {
+		mValue = pathParts[4]
+	}
+	if mType == "" && mName == "" && mValue == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	logger.Info(" with mType: " + mType)
+
+	if mType == "gauge" || mType == "counter" {
+		if mName != "" {
+			if mValue != "" {
+				err := m.save(mType, mName, mValue)
+				if err != nil {
+					// При попытке передать запрос с некорректным значением возвращать http.StatusBadRequest
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				} else {
+					logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
+					w.Header().Set("content-type", "text/plain")
+					w.Header().Set("charset", "utf-8")
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+			} else {
+				// При попытке передать запрос с пустым значением возвращать http.StatusBadRequest
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		} else {
+			// При попытке передать запрос без имени метрики возвращать http.StatusNotFound
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+	} else {
+		logger.Info(" and we are returning StatusBadRequest ")
+
+		// При попытке передать запрос с некорректным типом метрики возвращать http.StatusBadRequest
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+
+func (m *MemStorage) save(t, n, v string) error {
+
+	if t == "counter" {
+
+		// в случае если мы по какой-то причине получили число с плавающей точкой
+		vFloat64, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return err
+		}
+		vInt64 := int64(vFloat64)
+		// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
+		m.counter[n] += vInt64
+		return nil
+
+	} else if t == "gauge" {
+
+		vFloat64, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return err
+		}
+		// новое значение должно замещать предыдущее
+		m.gauge[n] = vFloat64
+		return nil
+
+	}
+	return nil
+}
