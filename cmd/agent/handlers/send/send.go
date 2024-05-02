@@ -26,10 +26,10 @@ func SendMetrics() {
 		logger.Info("Sending gauge metrics to URL: " + url + "...")
 
 		req, err := http.NewRequest("POST", url, nil)
-		if err != nil {
-			logger.Info(fmt.Sprintf("error %s", err))
-			continue
-		}
+		//if err != nil {
+		logger.Info(fmt.Sprintf("error %s", err))
+		//continue
+		//}
 
 		logger.Info("After http.NewRequest...")
 
