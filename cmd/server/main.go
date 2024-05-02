@@ -115,7 +115,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Принимать данные в формате http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
-
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
