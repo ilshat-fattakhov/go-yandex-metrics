@@ -30,6 +30,9 @@ func SendMetrics() {
 			logger.Info(fmt.Sprintf("error %s", err))
 			continue
 		}
+
+		logger.Info("After http.NewRequest...")
+
 		//Пример запроса к серверу:
 
 		//POST /update/counter/someMetric/527 HTTP/1.1
