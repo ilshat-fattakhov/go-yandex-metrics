@@ -80,6 +80,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 
 			w.Header().Set("content-type", "text/plain")
 			w.Header().Set("charset", "utf-8")
+			w.Header().Set("content-length", "11")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(mValue + "\n"))
 
@@ -127,7 +128,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	logger.Info(" with mType: " + mType)
+	//logger.Info(" with mType: " + mType)
 
 	if mType == "gauge" || mType == "counter" {
 		if mName != "" {
@@ -139,8 +140,9 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				} else {
 					logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
-					w.Header().Set("content-type", "text/plain")
-					w.Header().Set("charset", "utf-8")
+					w.Header().Set("Content-Type", "text/plain")
+					w.Header().Set("Charset", "utf-8")
+					w.Header().Set("Content-Length", "11")
 					w.WriteHeader(http.StatusOK)
 					return
 				}
