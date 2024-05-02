@@ -122,7 +122,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
-	w.Write([]byte("Type:" + mType + ":end"))
 
 	logger.Info("We have a visitor: " + r.RequestURI)
 	logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
