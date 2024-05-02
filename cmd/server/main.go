@@ -125,7 +125,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("We have a visitor: " + r.RequestURI)
 
 	if mType == "" && mName == "" && mValue == "" {
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusOK) // PROBABLY WRONG!!!
 		return
 	}
 	//logger.Info(" with mType: " + mType)
@@ -140,9 +140,9 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				} else {
 					logger.Info("Saving metrics. Type: " + mType + " Name: " + mName + " Value: " + mValue)
+					w.Header().Set("Content-Length", "0")
 					w.Header().Set("Content-Type", "text/plain")
 					w.Header().Set("Charset", "utf-8")
-					w.Header().Set("Content-Length", "11")
 					w.WriteHeader(http.StatusOK)
 					return
 				}
