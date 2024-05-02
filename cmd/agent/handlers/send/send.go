@@ -25,17 +25,23 @@ func SendMetrics() {
 
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
-			fmt.Printf("error %s", err)
-			return
+			logger.Info(fmt.Sprintf("error %s", err))
+			continue
 		}
+		//Пример запроса к серверу:
+
+		//POST /update/counter/someMetric/527 HTTP/1.1
+		//Host: localhost:8080
+		//Content-Length: 0
+		//Content-Type: text/plain
 
 		req.Header.Add("Content-Type", "text/plain")
 		req.Header.Add("Content-Length", "0")
 
 		resp, err := c.Do(req)
 		if err != nil {
-			fmt.Printf("error %s", err)
-			return
+			logger.Info(fmt.Sprintf("error %s", err))
+			continue
 		}
 
 		defer resp.Body.Close()
@@ -51,8 +57,8 @@ func SendMetrics() {
 		url := "http://localhost:8080/update/counter/" + n + "/1"
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
-			fmt.Printf("error %s", err)
-			return
+			logger.Info(fmt.Sprintf("error %s", err))
+			continue
 		}
 
 		req.Header.Add("Content-Type", "text/plain")
@@ -60,8 +66,8 @@ func SendMetrics() {
 
 		resp, err := c.Do(req)
 		if err != nil {
-			fmt.Printf("error %s", err)
-			return
+			logger.Info(fmt.Sprintf("error %s", err))
+			continue
 		}
 
 		defer resp.Body.Close()
