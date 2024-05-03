@@ -12,7 +12,6 @@ import (
 )
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-var mem = storage.NewMemStorage()
 
 func main() {
 	r := chi.NewRouter()
@@ -53,10 +52,10 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	logger.Info("Got type:" + chi.URLParam(r, "mtype") + chi.URLParam(r, "mname"))
 	//mValue := mem.Get(w, r)
-	mValue := mem.Get(mType, mName, w)
+	mValue := storage.Mem.Get(mType, mName, w)
 
 	if mValue == "" {
-		logger.Info("Oops!")
+		//logger.Info("Oops!")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else {
@@ -81,7 +80,10 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
 	if mType == "gauge" || mType == "counter" {
-		mem.Save(mType, mName, mValue, w)
+		logger.Info("Got URL:" + r.RequestURI)
+		logger.Info("Saving :" + mName + " with value " + mValue)
+
+		storage.Mem.Save(mType, mName, mValue, w)
 	} else {
 		logger.Info("Got URL:" + r.RequestURI)
 		w.WriteHeader(http.StatusNotImplemented)

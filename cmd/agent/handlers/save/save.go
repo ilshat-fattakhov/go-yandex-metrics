@@ -2,9 +2,7 @@ package hadnlers
 
 import (
 	"go-yandex-metrics/internal/storage"
-	"log/slog"
 	"math/rand"
-	"os"
 	"runtime"
 )
 
@@ -12,8 +10,8 @@ const PollInterval = 2 // Обновлять метрики из пакета ru
 
 func SaveMetrics(m *runtime.MemStats) {
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	logger.Info("Saving metrics...")
+	//logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	//logger.Info("Saving metrics...")
 
 	storage.GaugeMetrics["Alloc"] = float64(m.Alloc)
 	storage.GaugeMetrics["BuckHashSys"] = float64(m.BuckHashSys)
@@ -44,6 +42,6 @@ func SaveMetrics(m *runtime.MemStats) {
 	storage.GaugeMetrics["TotalAlloc"] = float64(m.TotalAlloc)
 	storage.GaugeMetrics["RandomValue"] = rand.Float64() * 5
 
-	logger.Info("Saved metrics...")
+	//logger.Info("Saved metrics...")
 
 }

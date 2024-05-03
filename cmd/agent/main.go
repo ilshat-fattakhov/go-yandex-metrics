@@ -17,6 +17,7 @@ import (
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 func main() {
+
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 

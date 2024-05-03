@@ -13,19 +13,22 @@ import (
 // данная структура хранит метрики
 
 type MemStorage struct {
-	gauge   map[string]float64
-	counter map[string]int64
+	Gauge   map[string]float64
+	Counter map[string]int64
 }
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		gauge:   make(map[string]float64),
-		counter: make(map[string]int64),
+		Gauge:   make(map[string]float64),
+		Counter: make(map[string]int64),
 	}
 }
-func (m *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
+
+var Mem = NewMemStorage()
+
+func (mem *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
 
 	//_, ok := GaugeMetrics["mName"]
 	//if ok {
@@ -38,8 +41,8 @@ func (m *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
 	}
 	vInt64 := int64(vFloat64)
 	// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
-	m.counter[mName] += vInt64
-
+	mem.Counter[mName] += vInt64
+	fmt.Println(mem)
 	//} else {
 	//	w.WriteHeader(http.StatusNotFound)
 	//	return
@@ -47,7 +50,7 @@ func (m *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
 
 }
 
-func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
+func (mem *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 
 	//_, ok := GaugeMetrics["mName"]
 	//if ok {
@@ -58,7 +61,7 @@ func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 		return
 	}
 	// новое значение должно замещать предыдущее
-	m.gauge[mName] = vFloat64
+	mem.Gauge[mName] = vFloat64
 	//} else {
 	//w.WriteHeader(http.StatusNotFound)
 	//return
@@ -67,38 +70,45 @@ func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 }
 
 // func (m *MemStorage) Save(t, n, v string) error {
-func (m *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) {
+func (mem *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) {
 
-	logger.Info("Saving:" + mType + mName + mValue)
+	//logger.Info("Saving:" + mType + mName + mValue)
 
 	if mType == "counter" {
-		m.saveCounter(mName, mValue, w)
+		mem.saveCounter(mName, mValue, w)
 	} else if mType == "gauge" {
-		m.saveGauge(mName, mValue, w)
+		mem.saveGauge(mName, mValue, w)
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
 
-func (m *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
+func (mem *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
 
 	logger.Info("Got type:" + mType + " and name " + mName)
+	fmt.Println(mem)
+	fmt.Println(mem.Counter)
 
 	if mType == "counter" {
 		logger.Info("Getting counter value")
-		_, ok := CounterMetrics["mName"]
+		mValue, ok := mem.Counter[mName]
 		if ok {
-			return (GetCounter(mName))
+			return fmt.Sprint(mValue)
+			//return (GetCounter(mName))
 		} else {
 			return ""
 		}
 
+		//http://localhost:8080/value/counter/testSetGet110
+		//http://localhost:8080/update/counter/testSetGet110/110
+
 	} else if mType == "gauge" {
-		_, ok := GaugeMetrics["mName"]
+		mValue, ok := mem.Gauge["mName"]
 		if ok {
 			logger.Info("Getting gauge value")
-			return (GetGauge(mName))
+			return fmt.Sprint(mValue)
+			//return (GetGauge(mName))
 		} else {
 			return ""
 		}

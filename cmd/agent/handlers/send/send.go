@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const ReportInterval = 2 //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
+const ReportInterval = 10 //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
 
 func SendMetrics() {
 
@@ -23,15 +23,15 @@ func SendMetrics() {
 
 		url := "http://localhost:8080/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
 
-		logger.Info("Sending gauge metrics to URL: " + url + "...")
+		//logger.Info("Sending gauge metrics to URL: " + url + "...")
 
 		req, err := http.NewRequest("POST", url, nil)
 		//if err != nil {
-		logger.Info(fmt.Sprintf("error %s", err))
+		//logger.Info(fmt.Sprintf("error %s", err))
 		//continue
 		//}
 
-		logger.Info("After http.NewRequest...")
+		//logger.Info("After http.NewRequest...")
 
 		//Пример запроса к серверу:
 
