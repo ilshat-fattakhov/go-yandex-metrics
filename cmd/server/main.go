@@ -85,8 +85,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if mType == "gauge" || mType == "counter" {
 		mem.Save(mType, mName, mValue, w)
 	} else {
-		//w.WriteHeader(http.StatusBadRequest)
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusNotImplemented)
 		return
 	}
 

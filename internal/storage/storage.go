@@ -27,42 +27,42 @@ func NewMemStorage() *MemStorage {
 }
 func (m *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
 
-	_, ok := GaugeMetrics["mName"]
-	if ok {
-		// в случае если мы по какой-то причине получили число с плавающей точкой
-		vFloat64, err := strconv.ParseFloat(mValue, 64)
-		if err != nil {
-			// Принимаем метрики только по протоколу HTTP методом POST
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		vInt64 := int64(vFloat64)
-		// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
-		m.counter[mName] += vInt64
-
-	} else {
-		w.WriteHeader(http.StatusNotFound)
+	//_, ok := GaugeMetrics["mName"]
+	//if ok {
+	// в случае если мы по какой-то причине получили число с плавающей точкой
+	vFloat64, err := strconv.ParseFloat(mValue, 64)
+	if err != nil {
+		// Принимаем метрики только по протоколу HTTP методом POST
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	vInt64 := int64(vFloat64)
+	// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
+	m.counter[mName] += vInt64
+
+	//} else {
+	//	w.WriteHeader(http.StatusNotFound)
+	//	return
+	//}
 
 }
 
 func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 
-	_, ok := GaugeMetrics["mName"]
-	if ok {
-		vFloat64, err := strconv.ParseFloat(mValue, 64)
-		if err != nil {
-			// Принимаем метрики только по протоколу HTTP методом POST
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		// новое значение должно замещать предыдущее
-		m.gauge[mName] = vFloat64
-	} else {
-		w.WriteHeader(http.StatusNotFound)
+	//_, ok := GaugeMetrics["mName"]
+	//if ok {
+	vFloat64, err := strconv.ParseFloat(mValue, 64)
+	if err != nil {
+		// Принимаем метрики только по протоколу HTTP методом POST
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	// новое значение должно замещать предыдущее
+	m.gauge[mName] = vFloat64
+	//} else {
+	//w.WriteHeader(http.StatusNotFound)
+	//return
+	//}
 
 }
 
