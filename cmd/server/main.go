@@ -53,13 +53,11 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	logger.Info("Got type:" + chi.URLParam(r, "mtype") + chi.URLParam(r, "mname"))
 	//mValue := mem.Get(w, r)
-	mValue := mem.Get(mType, mName)
+	mValue := mem.Get(mType, mName, w)
 
 	if mValue == "" {
 		logger.Info("Oops!")
-		w.WriteHeader(http.StatusBadRequest)
-		//logger.Info("При попытке запроса метрики без значения сервер должен возвращать http.StatusNotFound ?")
-		//w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	} else {
 		w.Header().Set("content-type", "text/plain")
@@ -85,6 +83,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if mType == "gauge" || mType == "counter" {
 		mem.Save(mType, mName, mValue, w)
 	} else {
+		logger.Info("Got URL:" + r.RequestURI)
 		w.WriteHeader(http.StatusNotImplemented)
 		return
 	}

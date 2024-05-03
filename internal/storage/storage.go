@@ -81,16 +81,28 @@ func (m *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) {
 	}
 }
 
-func (m *MemStorage) Get(mType, mName string) string {
+func (m *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
 
 	logger.Info("Got type:" + mType + " and name " + mName)
 
 	if mType == "counter" {
 		logger.Info("Getting counter value")
-		return (GetCounter(mName))
+		_, ok := CounterMetrics["mName"]
+		if ok {
+			return (GetCounter(mName))
+		} else {
+			return ""
+		}
+
 	} else if mType == "gauge" {
-		logger.Info("Getting gauge value")
-		return (GetGauge(mName))
+		_, ok := GaugeMetrics["mName"]
+		if ok {
+			logger.Info("Getting gauge value")
+			return (GetGauge(mName))
+		} else {
+			return ""
+		}
+
 	} else {
 		return ""
 	}
