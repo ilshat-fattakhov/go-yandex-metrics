@@ -25,13 +25,13 @@ func SendMetrics() {
 
 		logger.Info("Sending gauge metrics to URL: " + url + "...")
 
-		req, _ := http.NewRequest("POST", url, nil)
-		//if err != nil {
-		//logger.Info(fmt.Sprintf("error %s", err))
-		//continue
-		//}
+		req, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			logger.Info(fmt.Sprintf("error %s", err))
+			continue
+		}
 
-		//logger.Info("After http.NewRequest...")
+		logger.Info("After http.NewRequest...")
 
 		//Пример запроса к серверу:
 
