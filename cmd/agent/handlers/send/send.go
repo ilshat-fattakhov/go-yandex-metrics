@@ -25,15 +25,6 @@ func SendMetrics() {
 
 		logger.Info("Sending gauge metrics to URL: " + url + "...")
 
-		req, err := http.NewRequest("POST", url, nil)
-		req.Header.Set("content-type", "application/x-www-form-urlencoded")
-		if err != nil {
-			logger.Info(fmt.Sprintf("error %s", err))
-			continue
-		}
-
-		logger.Info("After http.NewRequest...")
-
 		//Пример запроса к серверу:
 
 		//POST /update/counter/someMetric/527 HTTP/1.1
@@ -41,8 +32,17 @@ func SendMetrics() {
 		//Content-Length: 0
 		//Content-Type: text/plain
 
+		req, err := http.NewRequest("POST", url, nil)
+		//req.Header.Set("content-type", "application/x-www-form-urlencoded")
 		req.Header.Add("Content-Type", "text/plain")
 		req.Header.Add("Content-Length", "0")
+
+		if err != nil {
+			logger.Info(fmt.Sprintf("error %s", err))
+			continue
+		}
+
+		logger.Info("After http.NewRequest...")
 
 		resp, err := c.Do(req)
 		if err != nil {
