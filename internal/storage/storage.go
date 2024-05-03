@@ -2,6 +2,8 @@ package storage
 
 import (
 	"fmt"
+	"net/http"
+
 	//"go-yandex-metrics/internal/storage"
 	"log/slog"
 	"os"
@@ -23,33 +25,41 @@ func NewMemStorage() *MemStorage {
 		counter: make(map[string]int64),
 	}
 }
-func (m *MemStorage) saveCounter(mName, mValue string) {
+func (m *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
 
 	// в случае если мы по какой-то причине получили число с плавающей точкой
-	vFloat64, _ := strconv.ParseFloat(mValue, 64)
+	vFloat64, err := strconv.ParseFloat(mValue, 64)
+	if err != nil {
+		// Принимаем метрики только по протоколу HTTP методом POST
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	vInt64 := int64(vFloat64)
 	// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
 	m.counter[mName] += vInt64
 	//return nil
 }
 
-func (m *MemStorage) saveGauge(mName, mValue string) {
+func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 
-	vFloat64, _ := strconv.ParseFloat(mValue, 64)
+	vFloat64, err := strconv.ParseFloat(mValue, 64)
+	if err != nil {
+		// Принимаем метрики только по протоколу HTTP методом POST
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	// новое значение должно замещать предыдущее
 	m.gauge[mName] = vFloat64
 	//return nil
 }
 
 // func (m *MemStorage) Save(t, n, v string) error {
-func (m *MemStorage) Save(mType, mName, mValue string) {
+func (m *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) {
 
 	logger.Info("Saving:" + mType + mName + mValue)
 
 	if mType == "counter" {
-		m.saveCounter(mName, mValue)
+		m.saveCounter(mName, mValue, w)
 	} else if mType == "gauge" {
-		m.saveGauge(mName, mValue)
+		m.saveGauge(mName, mValue, w)
 	}
 }
 
@@ -109,7 +119,7 @@ func getCounterValue(mType, mName string) string {
 
 		if mValue, ok := CounterMetrics[mName]; ok {
 
-			logger.Info("OK" + string(mValue))
+			//logger.Info("OK" + string(mValue))
 			return fmt.Sprint(mValue)
 		} else {
 

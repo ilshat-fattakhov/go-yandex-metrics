@@ -83,7 +83,7 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
 	if mType == "gauge" || mType == "counter" {
-		mem.Save(mType, mName, mValue)
+		mem.Save(mType, mName, mValue, w)
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 	}
