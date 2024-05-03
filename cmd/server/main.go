@@ -50,12 +50,11 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
-	logger.Info("Got type:" + chi.URLParam(r, "mtype") + chi.URLParam(r, "mname"))
-	//mValue := mem.Get(w, r)
+	logger.Info("Value request URL:" + r.RequestURI)
+	logger.Info("Getting " + mType + " metrics with name " + mName) //mValue := mem.Get(w, r)
 	mValue := storage.Mem.Get(mType, mName, w)
 
 	if mValue == "" {
-		//logger.Info("Oops!")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else {
@@ -80,12 +79,12 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
 	if mType == "gauge" || mType == "counter" {
-		logger.Info("Got URL:" + r.RequestURI)
-		logger.Info("Saving :" + mName + " with value " + mValue)
+		logger.Info("Update request URL:" + r.RequestURI)
+		logger.Info("Saving " + mType + " metrics with name " + mName + " and value " + mValue)
 
 		storage.Mem.Save(mType, mName, mValue, w)
 	} else {
-		logger.Info("Got URL:" + r.RequestURI)
+		logger.Info("Returning 501 for URL: " + r.RequestURI)
 		w.WriteHeader(http.StatusNotImplemented)
 		return
 	}
