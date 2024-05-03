@@ -81,7 +81,6 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	if mType == "gauge" || mType == "counter" {
 		logger.Info("Update request URL:" + r.RequestURI)
 		logger.Info("Saving " + mType + " metrics with name " + mName + " and value " + mValue)
-
 		storage.Mem.Save(mType, mName, mValue, w)
 	} else {
 		logger.Info("Returning 501 for URL: " + r.RequestURI)

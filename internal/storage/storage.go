@@ -42,7 +42,6 @@ func (mem *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) 
 	vInt64 := int64(vFloat64)
 	// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
 	mem.Counter[mName] += vInt64
-	fmt.Println(mem)
 	//} else {
 	//	w.WriteHeader(http.StatusNotFound)
 	//	return
@@ -69,10 +68,7 @@ func (mem *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 
 }
 
-// func (m *MemStorage) Save(t, n, v string) error {
 func (mem *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) {
-
-	//logger.Info("Saving:" + mType + mName + mValue)
 
 	if mType == "counter" {
 		mem.saveCounter(mName, mValue, w)
@@ -91,9 +87,9 @@ func (mem *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
 	fmt.Println(mem.Counter)
 
 	if mType == "counter" {
-		logger.Info("Getting counter value")
 		mValue, ok := mem.Counter[mName]
 		if ok {
+			logger.Info("Regurning " + mName + " counter value:" + fmt.Sprint(mValue))
 			return fmt.Sprint(mValue)
 			//return (GetCounter(mName))
 		} else {
@@ -104,9 +100,9 @@ func (mem *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
 		//http://localhost:8080/update/counter/testSetGet110/110
 
 	} else if mType == "gauge" {
-		mValue, ok := mem.Gauge["mName"]
+		mValue, ok := mem.Gauge[mName]
 		if ok {
-			logger.Info("Getting gauge value")
+			logger.Info("Returning " + mName + " counter value:" + fmt.Sprint(mValue))
 			return fmt.Sprint(mValue)
 			//return (GetGauge(mName))
 		} else {
@@ -151,11 +147,13 @@ func getCounterValue(mType, mName string) string {
 	logger.Info("getCounterValue func: Type Name: " + mType + mName)
 
 	if mType == "gauge" {
+		logger.Info("We are in gauge: " + mName)
+
 		if mValue, ok := GaugeMetrics[mName]; ok {
 			return fmt.Sprint(mValue)
 		}
 	} else if mType == "counter" {
-		logger.Info("We are in counter: " + mType + mName)
+		logger.Info("We are in counter: " + mName)
 
 		if mValue, ok := CounterMetrics[mName]; ok {
 
