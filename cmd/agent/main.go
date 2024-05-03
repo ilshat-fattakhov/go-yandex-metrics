@@ -27,33 +27,14 @@ func main() {
 	tickerSave := time.NewTicker(save.PollInterval * time.Second)
 	tickerSend := time.NewTicker(send.ReportInterval * time.Second)
 
-	//stop := make(chan bool)
-
-	go func() {
-		//defer func() { stopSave <- true }()
-		logger.Info("Starting ticker function...")
-
-		for {
-			select {
-			case <-tickerSave.C:
-				logger.Info("Tick...")
-				go save.SaveMetrics(m)
-			case <-tickerSend.C:
-				logger.Info("Tock...")
-				go send.SendMetrics()
-			case <-c:
-				logger.Info("Closing goroutine...")
-				return
-			}
+	for {
+		select {
+		case <-tickerSave.C:
+			logger.Info("Tick...")
+			go save.SaveMetrics(m)
+		case <-tickerSend.C:
+			logger.Info("Tock...")
+			go send.SendMetrics()
 		}
-	}()
-	// Блокировка, пока не будет получен сигнал
-	<-c
-	//tickerSave.Stop()
-	//tickerSend.Stop()
-	// Остановка горутины
-	//stop <- true
-	// Ожидание до тех пор, пока не выполнится
-	//<-stop
-	logger.Info("Application stopped...")
+	}
 }
