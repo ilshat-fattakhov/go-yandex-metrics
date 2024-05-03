@@ -44,13 +44,13 @@ func SendMetrics() {
 
 		logger.Info("After http.NewRequest...")
 
-		_, err = c.Do(req)
+		resp, err := c.Do(req)
 		if err != nil {
 			logger.Info(fmt.Sprintf("error %s", err))
 			continue
 		}
 
-		//defer resp.Body.Close()
+		defer resp.Body.Close()
 
 	}
 
