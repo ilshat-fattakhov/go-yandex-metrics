@@ -1,16 +1,11 @@
 package main
 
 import (
-	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func Test_updateHandler(t *testing.T) {
-	type args struct {
-		w http.ResponseWriter
-		r *http.Request
-	}
+func TestUpdateHandler(t *testing.T) {
 
 	type want struct {
 		code int
