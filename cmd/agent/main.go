@@ -1,15 +1,16 @@
 package main
 
 import (
+	"fmt"
 	send "go-yandex-metrics/cmd/agent/handlers/send"
+	"log"
 	"log/slog"
+	"strconv"
 
 	save "go-yandex-metrics/cmd/agent/handlers/save"
 
-	//"go-yandex-metrics/cmd/agent/storage"
-
+	"go-yandex-metrics/internal/storage"
 	"os"
-	"os/signal"
 	"runtime"
 	"time"
 )
@@ -18,14 +19,24 @@ var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 func main() {
 
+	storage.ParseFlags()
+
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c)
+	pollInterval, err := strconv.ParseUint(storage.FlagPollInterval, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tickerSend := time.NewTicker(time.Duration(pollInterval) * time.Second)
+	fmt.Println("Poll interval is", pollInterval)
 
-	tickerSave := time.NewTicker(save.PollInterval * time.Second)
-	tickerSend := time.NewTicker(send.ReportInterval * time.Second)
+	reportInterval, err := strconv.ParseUint(storage.FlagReportInterval, 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tickerSave := time.NewTicker(time.Duration(reportInterval) * time.Second)
+	fmt.Println("Report interval is", reportInterval)
 
 	for {
 		select {

@@ -2,13 +2,14 @@ package storage
 
 import (
 	"fmt"
-	"net/http"
-
-	//"go-yandex-metrics/internal/storage"
 	"log/slog"
+	"net/http"
 	"os"
 	"strconv"
 )
+
+//const PollInterval = flagReportInterval // Обновлять метрики из пакета runtime с заданной частотой: pollInterval — 2 секунды.
+//const ReportInterval = flagPollInterval //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
 
 // данная структура хранит метрики
 

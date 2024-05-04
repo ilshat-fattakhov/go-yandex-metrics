@@ -14,12 +14,16 @@ import (
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 func main() {
+
+	parseFlags()
+
 	r := chi.NewRouter()
 	r.Post("/update/{mtype}/{mname}/{mvalue}", updateHandler) // POST /update/counter/PollCount/1
 	r.Get("/value/{mtype}/{mname}", getHandler)               // GET /value/counter/PollCount
 	r.Get("/", indexHandler)
+	fmt.Println("Running server on", flagRunAddr)
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(flagRunAddr, r))
 	//log.Fatal(http.ListenAndServe(":8080", updateRouter()))
 }
 

@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-const ReportInterval = 2 //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
-
 func SendMetrics() {
 
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
@@ -21,7 +19,7 @@ func SendMetrics() {
 
 	for n, v := range storage.GaugeMetrics {
 
-		url := "http://localhost:8080/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
+		url := "http://localhost" + storage.FlagRunAddr + "/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
 
 		logger.Info("Sending gauge metrics to URL: " + url + "...")
 
@@ -60,7 +58,7 @@ func SendMetrics() {
 	for n := range storage.CounterMetrics {
 		// PollCount (тип counter) — счётчик, увеличивающийся на 1 при каждом обновлении метрики
 		// из пакета runtime на каждый pollInterval
-		url := "http://localhost:8080/update/counter/" + n + "/1"
+		url := "http://localhost" + storage.FlagRunAddr + "/update/counter/" + n + "/1"
 		req, err := http.NewRequest("POST", url, nil)
 		if err != nil {
 			logger.Info(fmt.Sprintf("error %s", err))

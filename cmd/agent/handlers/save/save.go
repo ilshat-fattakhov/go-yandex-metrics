@@ -6,8 +6,6 @@ import (
 	"runtime"
 )
 
-const PollInterval = 2 // Обновлять метрики из пакета runtime с заданной частотой: pollInterval — 2 секунды.
-
 func SaveMetrics(m *runtime.MemStats) {
 
 	//logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
