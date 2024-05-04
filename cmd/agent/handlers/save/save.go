@@ -8,9 +8,6 @@ import (
 
 func SaveMetrics(m *runtime.MemStats) {
 
-	//logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	//logger.Info("Saving metrics...")
-
 	storage.GaugeMetrics["Alloc"] = float64(m.Alloc)
 	storage.GaugeMetrics["BuckHashSys"] = float64(m.BuckHashSys)
 	storage.GaugeMetrics["Frees"] = float64(m.Frees)

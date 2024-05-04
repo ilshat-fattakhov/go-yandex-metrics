@@ -24,14 +24,14 @@ func main() {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
-	pollInterval, err := strconv.ParseUint(storage.FlagPollInterval, 10, 64)
+	pollInterval, err := strconv.ParseUint(storage.PollInterval, 10, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
 	tickerSend := time.NewTicker(time.Duration(pollInterval) * time.Second)
 	fmt.Println("Poll interval is", pollInterval)
 
-	reportInterval, err := strconv.ParseUint(storage.FlagReportInterval, 10, 64)
+	reportInterval, err := strconv.ParseUint(storage.ReportInterval, 10, 64)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -21,9 +21,9 @@ func main() {
 	r.Post("/update/{mtype}/{mname}/{mvalue}", updateHandler) // POST /update/counter/PollCount/1
 	r.Get("/value/{mtype}/{mname}", getHandler)               // GET /value/counter/PollCount
 	r.Get("/", indexHandler)
-	fmt.Println("Running server on", flagRunAddr)
+	fmt.Println("Running server on", runAddr)
 
-	log.Fatal(http.ListenAndServe(flagRunAddr, r))
+	log.Fatal(http.ListenAndServe(runAddr, r))
 	//log.Fatal(http.ListenAndServe(":8080", updateRouter()))
 }
 

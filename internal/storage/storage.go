@@ -8,11 +8,6 @@ import (
 	"strconv"
 )
 
-//const PollInterval = flagReportInterval // Обновлять метрики из пакета runtime с заданной частотой: pollInterval — 2 секунды.
-//const ReportInterval = flagPollInterval //Отправлять метрики на сервер с заданной частотой: reportInterval — 10 секунд.
-
-// данная структура хранит метрики
-
 type MemStorage struct {
 	Gauge   map[string]float64
 	Counter map[string]int64
@@ -31,8 +26,6 @@ var Mem = NewMemStorage()
 
 func (mem *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
 
-	//_, ok := GaugeMetrics["mName"]
-	//if ok {
 	// в случае если мы по какой-то причине получили число с плавающей точкой
 	vFloat64, err := strconv.ParseFloat(mValue, 64)
 	if err != nil {
@@ -43,11 +36,6 @@ func (mem *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) 
 	vInt64 := int64(vFloat64)
 	// новое значение должно добавляться к предыдущему, если какое-то значение уже было известно серверу
 	mem.Counter[mName] += vInt64
-	//} else {
-	//	w.WriteHeader(http.StatusNotFound)
-	//	return
-	//}
-
 }
 
 func (mem *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
@@ -62,11 +50,6 @@ func (mem *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 	}
 	// новое значение должно замещать предыдущее
 	mem.Gauge[mName] = vFloat64
-	//} else {
-	//w.WriteHeader(http.StatusNotFound)
-	//return
-	//}
-
 }
 
 func (mem *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) {
@@ -97,15 +80,11 @@ func (mem *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
 			return ""
 		}
 
-		//http://localhost:8080/value/counter/testSetGet110
-		//http://localhost:8080/update/counter/testSetGet110/110
-
 	} else if mType == "gauge" {
 		mValue, ok := mem.Gauge[mName]
 		if ok {
 			logger.Info("Returning " + mName + " counter value:" + fmt.Sprint(mValue))
 			return fmt.Sprint(mValue)
-			//return (GetGauge(mName))
 		} else {
 			return ""
 		}
@@ -116,34 +95,6 @@ func (mem *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
 
 }
 
-func GetCounter(mName string) string {
-
-	// Принимать запрос в формате http://<АДРЕС_СЕРВЕРА>/value/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>
-	logger.Info("Get request. Type: Counter, Name: " + mName)
-	mValue := getCounterValue("counter", mName)
-	if mValue == "" {
-		return ""
-	} else {
-		logger.Info("Sending metrics to browser. Type: Counter, Name: " + mName + " Value: " + mValue)
-		return mValue
-	}
-
-}
-
-func GetGauge(mName string) string {
-
-	// Принимать запрос в формате http://<АДРЕС_СЕРВЕРА>/value/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>
-	logger.Info("Get request. Type: Gauge" + " Name: " + mName)
-	mValue := getCounterValue("gauge", mName)
-	if mValue == "" {
-		return ""
-	} else {
-		logger.Info("Sending metrics to browser. Type Gauge, Name: " + mName + " Value: " + mValue)
-		return mValue
-
-	}
-
-}
 func getCounterValue(mType, mName string) string {
 	logger.Info("getCounterValue func: Type Name: " + mType + mName)
 
