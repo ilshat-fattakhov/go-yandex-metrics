@@ -50,7 +50,7 @@ func (mem *MemStorage) Save(mType, mName, mValue string, w http.ResponseWriter) 
 	}
 }
 
-func (mem *MemStorage) Get(mType, mName string, w http.ResponseWriter) string {
+func (mem *MemStorage) Get(mType, mName string) string {
 	switch mType {
 	case "counter":
 		mValue, ok := mem.Counter[mName]
