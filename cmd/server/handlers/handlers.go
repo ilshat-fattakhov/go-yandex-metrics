@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"text/template"
 
@@ -23,9 +24,14 @@ var ErrItemNotFound = errors.New("item not found")
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	cwd, _ := os.Getwd()
+	os := runtime.GOOS
 	html := HTMLPage{"All Metrics", getAllMetrics()}
-	//pathToT := "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
-	pathToT := filepath.Join(cwd, "./template/metrics.html")
+	pathToT := ""
+	if os == "windows" {
+		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
+	} else {
+		pathToT = filepath.Join(cwd, "./go-yandex-metrics/cmd/server/template/metrics.html")
+	}
 	t, err := template.ParseFiles(pathToT)
 	if err != nil {
 		log.Printf("error parsing template file: %v", err)
@@ -62,12 +68,18 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	cwd, _ := os.Getwd()
+	os := runtime.GOOS
 	html := HTMLPage{"Metric Data for " + mType + " " + mName, mValue}
 	if mValue == "" {
 		html = HTMLPage{"No data", "No data available yet"}
 	}
-	//pathToT := "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
-	pathToT := filepath.Join(cwd, "./template/metrics.html")
+	pathToT := ""
+	if os == "windows" {
+		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
+	} else {
+		pathToT = filepath.Join(cwd, "./go-yandex-metrics/cmd/server/template/metrics.html")
+	}
+
 	t, err := template.ParseFiles(pathToT)
 	if err != nil {
 		log.Printf("error parsing template file for individual metrics: %v", err)
