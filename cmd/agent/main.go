@@ -27,7 +27,7 @@ func runAgent() error {
 
 	pollInterval, err := strconv.ParseUint(cfg.Agent.PollInterval, 10, 64)
 	if err != nil {
-		return fmt.Errorf("error parsing poll PollInterval: %w", err)
+		return fmt.Errorf("error parsing PollInterval: %w", err)
 	}
 	tickerSave := time.NewTicker(time.Duration(pollInterval) * time.Second)
 
@@ -40,9 +40,9 @@ func runAgent() error {
 	for {
 		select {
 		case <-tickerSave.C:
-			go handlers.SaveMetrics(m)
+			handlers.SaveMetrics(m)
 		case <-tickerSend.C:
-			go handlers.SendMetrics(cfg.Agent.Host)
+			handlers.SendMetrics(cfg.Agent.Host)
 		}
 	}
 }

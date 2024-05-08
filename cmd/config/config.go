@@ -20,72 +20,57 @@ type AgentConfig struct {
 }
 
 func NewServerConfig() (*ServerConfig, error) {
-	defaultRunAddrServer := "localhost:8080"
-	flagRunAddrServer := ""
+	defaultRunAddr := "localhost:8080"
+	var flagRunAddr string
 
 	config := &ServerConfig{}
-	flag.StringVar(&flagRunAddrServer, "a", defaultRunAddrServer, "address and port to run server")
-	flag.Parse()
 
-	if envRunAddrServer := os.Getenv("ADDRESS"); envRunAddrServer != "" {
-		config.Server.Host = envRunAddrServer
-	} else if IsFlagPassed("a") {
-		config.Server.Host = flagRunAddrServer
+	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
+	flag.Parse()
+	envRunAddr, ok := os.LookupEnv("ADDRESS")
+	if !ok {
+		config.Server.Host = flagRunAddr
 	} else {
-		config.Server.Host = defaultRunAddrServer
+		config.Server.Host = envRunAddr
 	}
 	return config, nil
 }
 
 func NewAgentConfig() (*AgentConfig, error) {
-	defaultRunAddrAgent := "localhost:8080"
-	defaultReportIntervalAgent := "10"
-	defaultPollIntervalAgent := "2"
+	defaultRunAddr := "localhost:8080"
+	defaultReportInterval := "10"
+	defaultPollInterval := "2"
 
-	flagRunAddrAgent := ""
-	flagReportIntervalAgent := ""
-	flagPollIntervalAgent := ""
+	var flagRunAddr string
+	var flagReportInterval string
+	var flagPollInterval string
 
 	config := &AgentConfig{}
 
-	flag.StringVar(&flagRunAddrAgent, "a", defaultRunAddrAgent, "address and port to run agent")
-	flag.StringVar(&flagReportIntervalAgent, "r", defaultReportIntervalAgent, "data report interval")
-	flag.StringVar(&flagPollIntervalAgent, "p", defaultPollIntervalAgent, "data poll interval")
+	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
+	flag.StringVar(&flagPollInterval, "p", defaultPollInterval, "data poll interval")
+	flag.StringVar(&flagReportInterval, "r", defaultReportInterval, "data report interval")
 	flag.Parse()
 
-	config.Agent.Host = setParam("ADDRESS", "a", flagRunAddrAgent, defaultRunAddrAgent)
-	config.Agent.ReportInterval = setParam("REPORT_INTERVAL", "r", flagReportIntervalAgent, defaultReportIntervalAgent)
-	config.Agent.PollInterval = setParam("POLL_INTERVAL", "p", flagPollIntervalAgent, defaultPollIntervalAgent)
-
-	return config, nil
-}
-
-func setParam(envParamName, flagName, flagValue, defaultValue string) string {
-	retValue := ""
-
-	if paramValue := os.Getenv(envParamName); paramValue != "" {
-		retValue = paramValue
-	} else if IsFlagPassed(flagName) {
-		switch flagName {
-		case "a":
-			retValue = flagValue
-		case "r":
-			retValue = flagValue
-		case "p":
-			retValue = flagValue
-		}
+	envRunAddr, ok := os.LookupEnv("ADDRESS")
+	if !ok {
+		config.Agent.Host = flagRunAddr
 	} else {
-		retValue = defaultValue
+		config.Agent.Host = envRunAddr
 	}
-	return retValue
-}
 
-func IsFlagPassed(name string) bool {
-	found := false
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == name {
-			found = true
-		}
-	})
-	return found
+	envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL")
+	if !ok {
+		config.Agent.ReportInterval = flagReportInterval
+	} else {
+		config.Agent.ReportInterval = envReportInterval
+	}
+
+	envPollInterval, ok := os.LookupEnv("POLL_INTERVAL")
+	if !ok {
+		config.Agent.PollInterval = flagPollInterval
+	} else {
+		config.Agent.PollInterval = envPollInterval
+	}
+	return config, nil
 }

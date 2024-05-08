@@ -29,9 +29,11 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	//html := HTMLPage{"All Metrics", getAllMetrics()}
 	pathToT := ""
 	if os == "windows" {
-		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
+		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.txt"
+		//pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
 	} else {
-		pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.html")
+		pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.txt")
+		//pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.html")
 	}
 	t, err := template.ParseFiles(pathToT)
 	if err != nil {
