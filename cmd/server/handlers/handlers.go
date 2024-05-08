@@ -30,7 +30,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	if os == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
 	} else {
-		pathToT = filepath.Join(cwd, "./cmd/server/template/metrics.html")
+		pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.html")
 	}
 	t, err := template.ParseFiles(pathToT)
 	if err != nil {
@@ -79,7 +79,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	if os == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
 	} else {
-		pathToT = filepath.Join(cwd, "./cmd/server/template/metrics.html")
+		pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.html")
 	}
 
 	t, err := template.ParseFiles(pathToT)
