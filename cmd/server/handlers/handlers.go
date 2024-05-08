@@ -30,7 +30,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	if os == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
 	} else {
-		pathToT = filepath.Join(cwd, "./go-yandex-metrics/cmd/server/template/metrics.html")
+		pathToT = filepath.Join(cwd, "./cmd/server/template/metrics.html")
 	}
 	t, err := template.ParseFiles(pathToT)
 	if err != nil {
@@ -38,6 +38,8 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("charset", "utf-8")
+	w.WriteHeader(http.StatusOK)
 	err = t.Execute(w, html)
 	if err != nil {
 		log.Printf("error creating tempate: %v", err)
@@ -77,7 +79,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	if os == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
 	} else {
-		pathToT = filepath.Join(cwd, "./go-yandex-metrics/cmd/server/template/metrics.html")
+		pathToT = filepath.Join(cwd, "./cmd/server/template/metrics.html")
 	}
 
 	t, err := template.ParseFiles(pathToT)
@@ -85,6 +87,8 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("error parsing template file for individual metrics: %v", err)
 	}
 	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("charset", "utf-8")
+	w.WriteHeader(http.StatusOK)
 	err = t.Execute(w, html)
 	if err != nil {
 		log.Printf("error creating template for individual metrics: %v", err)
