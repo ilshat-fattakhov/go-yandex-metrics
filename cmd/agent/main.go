@@ -27,13 +27,13 @@ func runAgent() error {
 
 	pollInterval, err := strconv.ParseUint(cfg.Agent.PollInterval, 10, 64)
 	if err != nil {
-		return fmt.Errorf("error parsing PollInterval: %w", err)
+		log.Fatal(fmt.Printf("failed to parse %s as a poll interval value: %v", cfg.Agent.PollInterval, err))
 	}
 	tickerSave := time.NewTicker(time.Duration(pollInterval) * time.Second)
 
 	reportInterval, err := strconv.ParseUint(cfg.Agent.ReportInterval, 10, 64)
 	if err != nil {
-		return fmt.Errorf("error parsing ReportInterval: %w", err)
+		log.Fatal(fmt.Printf("failed to parse %s as a report interval value: %v", cfg.Agent.ReportInterval, err))
 	}
 	tickerSend := time.NewTicker(time.Duration(reportInterval) * time.Second)
 

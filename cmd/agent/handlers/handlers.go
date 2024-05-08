@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"runtime"
 	"time"
 
@@ -46,7 +47,15 @@ func SendMetrics(host string) {
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
 
 	for n, v := range storage.GaugeMetrics {
-		url := "http://" + host + "/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
+
+		value := fmt.Sprintf("%f", v)
+		base := "http://" + host
+		path := "/update/gauge/" + n + "/" + value
+		url, err := url.JoinPath(base, path)
+		if err != nil {
+			log.Fatal(fmt.Printf("failed to join path parts: %v", err))
+		}
+
 		req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 		req.Header.Add("Content-Type", "text/plain")
 		req.Header.Add("Content-Length", "0")
@@ -61,12 +70,17 @@ func SendMetrics(host string) {
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fmt.Printf("failed to close response body: %v", err))
 		}
 	}
 
 	for n := range storage.CounterMetrics {
-		url := "http://" + host + "/update/counter/" + n + "/1"
+		base := "http://" + host
+		path := "/update/counter/" + n + "/1"
+		url, err := url.JoinPath(base, path)
+		if err != nil {
+			log.Fatal(fmt.Printf("failed to join path parts: %v", err))
+		}
 		req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
 		if err != nil {
 			continue
@@ -77,11 +91,16 @@ func SendMetrics(host string) {
 
 		resp, err := c.Do(req)
 		if err != nil {
-			continue
+			log.Fatal(fmt.Printf("failed to do a request: %v", err))
 		}
+
+		if resp.StatusCode != 200 {
+			log.Fatal(fmt.Printf("unexpected response code: %v", resp.StatusCode))
+		}
+
 		err = resp.Body.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fmt.Printf("failed to close response body: %v", err))
 		}
 	}
 }
