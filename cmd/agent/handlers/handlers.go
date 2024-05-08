@@ -1,13 +1,17 @@
-package hadnlers
+package handlers
 
 import (
-	"go-yandex-metrics/internal/storage"
+	"fmt"
+	"log"
 	"math/rand"
+	"net/http"
 	"runtime"
+	"time"
+
+	"go-yandex-metrics/internal/storage"
 )
 
 func SaveMetrics(m *runtime.MemStats) {
-
 	storage.GaugeMetrics["Alloc"] = float64(m.Alloc)
 	storage.GaugeMetrics["BuckHashSys"] = float64(m.BuckHashSys)
 	storage.GaugeMetrics["Frees"] = float64(m.Frees)
@@ -35,8 +39,49 @@ func SaveMetrics(m *runtime.MemStats) {
 	storage.GaugeMetrics["StackSys"] = float64(m.StackSys)
 	storage.GaugeMetrics["Sys"] = float64(m.Sys)
 	storage.GaugeMetrics["TotalAlloc"] = float64(m.TotalAlloc)
-	storage.GaugeMetrics["RandomValue"] = rand.Float64() * 5
+	storage.GaugeMetrics["RandomValue"] = rand.Float64()
+}
 
-	//logger.Info("Saved metrics...")
+func SendMetrics(host string) {
+	c := http.Client{Timeout: time.Duration(1) * time.Second}
 
+	for n, v := range storage.GaugeMetrics {
+		url := "http://" + host + "/update/gauge/" + n + "/" + fmt.Sprintf("%v", v)
+		req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
+		req.Header.Add("Content-Type", "text/plain")
+		req.Header.Add("Content-Length", "0")
+
+		if err != nil {
+			continue
+		}
+
+		resp, err := c.Do(req)
+		if err != nil {
+			continue
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	for n := range storage.CounterMetrics {
+		url := "http://" + host + "/update/counter/" + n + "/1"
+		req, err := http.NewRequest(http.MethodPost, url, http.NoBody)
+		if err != nil {
+			continue
+		}
+
+		req.Header.Add("Content-Type", "text/plain")
+		req.Header.Add("Content-Length", "0")
+
+		resp, err := c.Do(req)
+		if err != nil {
+			continue
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }

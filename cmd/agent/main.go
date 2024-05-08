@@ -2,50 +2,47 @@ package main
 
 import (
 	"fmt"
-	send "go-yandex-metrics/cmd/agent/handlers/send"
 	"log"
-	"log/slog"
-	"strconv"
-
-	save "go-yandex-metrics/cmd/agent/handlers/save"
-
-	"go-yandex-metrics/internal/storage"
-	"os"
 	"runtime"
+	"strconv"
 	"time"
+
+	"go-yandex-metrics/cmd/agent/handlers"
+	"go-yandex-metrics/cmd/config"
 )
 
-var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-
 func main() {
+	if err := runAgent(); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	storage.ParseFlags()
-
+func runAgent() error {
+	cfg, err := config.NewAgentConfig()
+	if err != nil {
+		return fmt.Errorf("failed to create config: %w", err)
+	}
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
-	pollInterval, err := strconv.ParseUint(storage.PollInterval, 10, 64)
+	pollInterval, err := strconv.ParseUint(cfg.Agent.PollInterval, 10, 64)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error parsing poll PollInterval: %w", err)
 	}
-	tickerSend := time.NewTicker(time.Duration(pollInterval) * time.Second)
-	fmt.Println("Poll interval is", pollInterval)
+	tickerSave := time.NewTicker(time.Duration(pollInterval) * time.Second)
 
-	reportInterval, err := strconv.ParseUint(storage.ReportInterval, 10, 64)
+	reportInterval, err := strconv.ParseUint(cfg.Agent.ReportInterval, 10, 64)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("error parsing ReportInterval: %w", err)
 	}
-	tickerSave := time.NewTicker(time.Duration(reportInterval) * time.Second)
-	fmt.Println("Report interval is", reportInterval)
+	tickerSend := time.NewTicker(time.Duration(reportInterval) * time.Second)
 
 	for {
 		select {
 		case <-tickerSave.C:
-			logger.Info("Tick...")
-			go save.SaveMetrics(m)
+			go handlers.SaveMetrics(m)
 		case <-tickerSend.C:
-			logger.Info("Tock...")
-			go send.SendMetrics()
+			go handlers.SendMetrics(cfg.Agent.Host)
 		}
 	}
 }
