@@ -71,15 +71,17 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	cwd, _ := os.Getwd()
 	os := runtime.GOOS
-	html := HTMLPage{"Metric Data for " + mType + " " + mName, mValue}
+	//html := HTMLPage{"Metric Data for " + mType + " " + mName, mValue}
+	html := HTMLPage{}
 	if mValue == "" {
-		html = HTMLPage{"No data", "No data available yet"}
+		html = HTMLPage{}
+		//html = HTMLPage{"No data", "No data available yet"}
 	}
 	pathToT := ""
 	if os == "windows" {
-		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
+		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.txt"
 	} else {
-		pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.html")
+		pathToT = filepath.Join(cwd, "./cmd/server/templates/metrics.txt")
 	}
 
 	t, err := template.ParseFiles(pathToT)
