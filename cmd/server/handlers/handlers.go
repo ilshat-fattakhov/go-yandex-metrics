@@ -16,8 +16,8 @@ import (
 )
 
 type HTMLPage struct {
-	Title string
-	HTML  string
+	//	Title string
+	HTML string
 }
 
 var ErrItemNotFound = errors.New("item not found")
@@ -25,7 +25,8 @@ var ErrItemNotFound = errors.New("item not found")
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	cwd, _ := os.Getwd()
 	os := runtime.GOOS
-	html := HTMLPage{"All Metrics", getAllMetrics()}
+	html := HTMLPage{getAllMetrics()}
+	//html := HTMLPage{"All Metrics", getAllMetrics()}
 	pathToT := ""
 	if os == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
@@ -72,11 +73,12 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	cwd, _ := os.Getwd()
 	os := runtime.GOOS
 	//html := HTMLPage{"Metric Data for " + mType + " " + mName, mValue}
-	html := HTMLPage{}
+	html := HTMLPage{mValue}
 	if mValue == "" {
 		html = HTMLPage{}
 		//html = HTMLPage{"No data", "No data available yet"}
 	}
+
 	pathToT := ""
 	if os == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.txt"
@@ -100,9 +102,11 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 func getSingleMetric(mType, mName string) (string, error) {
 	mValue := storage.Mem.Get(mType, mName)
 
-	html := "Metric type: <b>" + mType + "</b><br>"
-	html += "Metric name: <b>" + mName + "</b><br>"
-	html += "Metric value: <b>" + mValue + "</b><br>"
+	//html := "Metric type: <b>" + mType + "</b><br>"
+	//html += "Metric name: <b>" + mName + "</b><br>"
+	//html += "Metric value: <b>" + mValue + "</b><br>"
+
+	html := mValue
 
 	if mValue == "" {
 		return "", ErrItemNotFound
