@@ -81,15 +81,13 @@ func SaveMetrics(metricsToSend *storage.MemStorage) {
 
 func SendMetrics(metricsToSend *storage.MemStorage, host string) {
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
-	// var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	for n, v := range metricsToSend.Gauge {
 		value := strconv.FormatFloat(v, 'f', -1, 64)
 
 		base := "http://" + host
 		path := "/update/gauge/" + n + "/" + value
 		sendURL, err := url.JoinPath(base, path)
-		// logger.Info("Sending gauge metrics to " + sendUrl)
-
 		if err != nil {
 			log.Fatal(fmt.Printf("failed to join path parts: %v", err))
 		}
@@ -123,7 +121,6 @@ func SendMetrics(metricsToSend *storage.MemStorage, host string) {
 		path := "/update/counter/" + n + "/" + value
 		sendURL, err := url.JoinPath(base, path)
 
-		// logger.Info("Sending counter metrics to " + sendUrl)
 		if err != nil {
 			log.Fatal(fmt.Printf("failed to join path parts: %v", err))
 		}

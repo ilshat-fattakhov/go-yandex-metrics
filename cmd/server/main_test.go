@@ -36,7 +36,7 @@ func TestUpdateHandler(t *testing.T) {
 			url:    "/update/gauge/BuckHashSys/1.4",
 			method: "POST",
 			want: want{
-				code:	200,
+				code:        200,
 				contentType: "text/plain",
 			},
 			comment: "При успешном приёме gauge возвращать http.StatusOK",
@@ -57,7 +57,7 @@ func TestUpdateHandler(t *testing.T) {
 			url:    "/update/counter/",
 			method: "POST",
 			want: want{
-				code:	404,
+				code:        404,
 				contentType: "text/plain",
 			},
 			comment: "При попытке передать запрос без имени метрики возвращать http.StatusNotFound",
@@ -67,7 +67,7 @@ func TestUpdateHandler(t *testing.T) {
 			url:    "/update/wrongName/test/1",
 			method: "POST",
 			want: want{
-				code:	400,
+				code:        400,
 				contentType: "text/plain",
 			},
 			comment: "При попытке передать запрос с некорректным типом метрики или значением возвращать http.StatusBadRequest",

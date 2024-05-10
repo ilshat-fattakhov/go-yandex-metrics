@@ -45,16 +45,18 @@ func RunServer() error {
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	cwd, _ := os.Getwd()
-	os := runtime.GOOS
-	html := HTMLPage{getAllMetrics()}
-	// html := HTMLPage{"All Metrics", getAllMetrics()}
-	pathToT := filepath.Join(cwd, "cmd","server","templates","metrics.txt")
-	// pathToT = filepath.Join(cwd, "cmd/server/templates/metrics.html")
-	if os == "windows" {
-		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.txt"
-		// pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.html"
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Printf("error getting path to working directory: %v", err)
 	}
+	html := HTMLPage{getAllMetrics()}
+
+	pathToT := filepath.Join(cwd, "cmd", "server", "templates", "metrics.txt")
+	opSys := runtime.GOOS
+	if opSys == "windows" {
+		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.txt"
+	}
+
 	t, err := template.ParseFiles(pathToT)
 	if err != nil {
 		log.Printf("error parsing template file: %v", err)
@@ -92,18 +94,19 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	cwd, _ := os.Getwd()
-	os := runtime.GOOS
-	// html := HTMLPage{"Metric Data for " + mType + " " + mName, mValue}
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Printf("error getting path to working directory: %v", err)
+	}
+
 	html := HTMLPage{mValue}
 	if mValue == "" {
 		html = HTMLPage{}
-		// html = HTMLPage{"No data", "No data available yet"}
 	}
 
-	pathToT := filepath.Join(cwd, "cmd","server","templates","metrics.txt")
-
-	if os == "windows" {
+	pathToT := filepath.Join(cwd, "cmd", "server", "templates", "metrics.txt")
+	opSys := runtime.GOOS
+	if opSys == "windows" {
 		pathToT = "/dev/projects/yandex-practicum/go-yandex-metrics/cmd/server/templates/metrics.txt"
 	}
 
@@ -141,11 +144,6 @@ func getSingleMetric(mType, mName string) (string, error) {
 	default:
 		return "", nil
 	}
-
-	// fmt.Println(mType, mName)
-	// html := "Metric type: <b>" + mType + "</b><br>"
-	// html += "Metric name: <b>" + mName + "</b><br>"
-	// html += "Metric value: <b>" + mValue + "</b><br>"
 }
 
 func UpdateHandler(w http.ResponseWriter, r *http.Request) {
@@ -153,14 +151,10 @@ func UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	// var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	// logger.Info("Got request: " + r.RequestURI)
 
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
-
-	// logger.Info("Counter data: " + mType + mName + mValue)
 
 	if mType == "gauge" || mType == "counter" {
 		MetricsDB.Save(mType, mName, mValue, w)

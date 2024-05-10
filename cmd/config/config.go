@@ -2,21 +2,22 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"os"
 )
 
 type ServerConfig struct {
 	Server struct {
-		Host string `yaml:"host"`
-	} `yaml:"server"`
+		Host string
+	}
 }
 
 type AgentConfig struct {
 	Agent struct {
-		Host           string `yaml:"host"`
-		PollInterval   string `yaml:"pollinterval"`
-		ReportInterval string `yaml:"reportinterval"`
-	} `yaml:"agent"`
+		Host           string
+		PollInterval   string
+		ReportInterval string
+	}
 }
 
 func NewServerConfig() (*ServerConfig, error) {
@@ -27,10 +28,11 @@ func NewServerConfig() (*ServerConfig, error) {
 
 	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
 	flag.Parse()
+
+	config.Server.Host = flagRunAddr
 	envRunAddr, ok := os.LookupEnv("ADDRESS")
-	if !ok {
-		config.Server.Host = flagRunAddr
-	} else {
+	fmt.Println(envRunAddr)
+	if ok {
 		config.Server.Host = envRunAddr
 	}
 	return config, nil
@@ -52,24 +54,21 @@ func NewAgentConfig() (*AgentConfig, error) {
 	flag.StringVar(&flagReportInterval, "r", defaultReportInterval, "data report interval")
 	flag.Parse()
 
+	config.Agent.Host = flagRunAddr
 	envRunAddr, ok := os.LookupEnv("ADDRESS")
-	if !ok {
-		config.Agent.Host = flagRunAddr
-	} else {
+	if ok {
 		config.Agent.Host = envRunAddr
 	}
 
+	config.Agent.ReportInterval = flagReportInterval
 	envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL")
-	if !ok {
-		config.Agent.ReportInterval = flagReportInterval
-	} else {
+	if ok {
 		config.Agent.ReportInterval = envReportInterval
 	}
 
+	config.Agent.PollInterval = flagPollInterval
 	envPollInterval, ok := os.LookupEnv("POLL_INTERVAL")
-	if !ok {
-		config.Agent.PollInterval = flagPollInterval
-	} else {
+	if ok {
 		config.Agent.PollInterval = envPollInterval
 	}
 	return config, nil
