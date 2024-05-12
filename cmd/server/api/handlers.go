@@ -14,8 +14,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-var ErrItemNotFound = errors.New("item not found")
-
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -70,6 +68,7 @@ func getAllMetrics(s *Server) string {
 
 func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	var ErrItemNotFound = errors.New("item not found")
 
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
@@ -118,6 +117,7 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 	var html string
+	var ErrItemNotFound = errors.New("item not found")
 
 	switch mType {
 	case "gauge":
