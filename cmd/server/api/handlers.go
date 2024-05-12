@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"text/template"
 
@@ -14,6 +16,8 @@ import (
 var ErrItemNotFound = errors.New("item not found")
 
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("charset", "utf-8")
 	w.WriteHeader(http.StatusOK)
@@ -22,17 +26,20 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	tpl := `{{.}}`
 	t, err := template.New("All Metrics").Parse(tpl)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(fmt.Sprintf("an error occured parsing template: %v", err))
 	}
 
 	var doc bytes.Buffer
 	err = t.Execute(&doc, allMetrics)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(fmt.Sprintf("an error occured converting template data: %v", err))
 	}
-	html := doc.String()
-	w.Write([]byte(html))
 
+	html := doc.String()
+	_, err = w.Write([]byte(html))
+	if err != nil {
+		logger.Error(fmt.Sprintf("an error occured writing to browser: %v", err))
+	}
 }
 
 func getAllMetrics(s *Server) string {
@@ -49,6 +56,8 @@ func getAllMetrics(s *Server) string {
 }
 
 func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 	mValue, err := s.getSingleMetric(mType, mName)
@@ -67,17 +76,19 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	tpl := `{{.}}`
 	t, err := template.New("Single Metric").Parse(tpl)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(fmt.Sprintf("an error occured parsing template: %v", err))
 	}
 
 	var doc bytes.Buffer
 	err = t.Execute(&doc, mValue)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(fmt.Sprintf("an error occured converting template data: %v", err))
 	}
 	html := doc.String()
-	w.Write([]byte(html))
-
+	_, err = w.Write([]byte(html))
+	if err != nil {
+		logger.Error(fmt.Sprintf("an error occured writing to browser: %v", err))
+	}
 }
 
 func (s *Server) getSingleMetric(mType, mName string) (string, error) {

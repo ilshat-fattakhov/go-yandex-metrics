@@ -55,7 +55,7 @@ func (a *Agent) SendMetrics() error {
 
 		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", "gauge", n, "/", value)
 		if err != nil {
-			return fmt.Errorf("failed to join path parts: %v", err)
+			return fmt.Errorf("failed to join path parts: %w", err)
 		}
 
 		req, err := http.NewRequest(http.MethodPost, sendURL, http.NoBody)
@@ -68,7 +68,7 @@ func (a *Agent) SendMetrics() error {
 
 		resp, err := c.Do(req)
 		if err != nil {
-			return fmt.Errorf("failed to do a request: %v", err)
+			return fmt.Errorf("failed to do a request: %w", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -77,7 +77,7 @@ func (a *Agent) SendMetrics() error {
 
 		err = resp.Body.Close()
 		if err != nil {
-			return fmt.Errorf("failed to close response body: %v", err)
+			return fmt.Errorf("failed to close response body: %w", err)
 		}
 	}
 
@@ -85,7 +85,7 @@ func (a *Agent) SendMetrics() error {
 		value := strconv.Itoa(int(v))
 		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", "counter", n, "/", value)
 		if err != nil {
-			return fmt.Errorf("failed to join path parts: %v", err)
+			return fmt.Errorf("failed to join path parts: %w", err)
 		}
 		req, err := http.NewRequest(http.MethodPost, sendURL, http.NoBody)
 		if err != nil {
@@ -97,7 +97,7 @@ func (a *Agent) SendMetrics() error {
 
 		resp, err := c.Do(req)
 		if err != nil {
-			return fmt.Errorf("failed to do a request: %v", err)
+			return fmt.Errorf("failed to do a request: %w", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -106,10 +106,8 @@ func (a *Agent) SendMetrics() error {
 
 		err = resp.Body.Close()
 		if err != nil {
-			return fmt.Errorf("failed to close response body: %v", err)
+			return fmt.Errorf("failed to close response body: %w", err)
 		}
-
-		// clear a.store PollCount here
 		a.store.Counter["PollCount"] = 0
 	}
 	return nil

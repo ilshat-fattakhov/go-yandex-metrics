@@ -18,8 +18,8 @@ type Configuration struct {
 }
 
 type Server struct {
-	cfg    HTTPServer
 	store  storage.MemStorage
+	cfg    HTTPServer
 	router *chi.Mux
 }
 

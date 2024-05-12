@@ -6,8 +6,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-
 	"go-yandex-metrics/internal/storage"
 )
 
@@ -22,15 +20,14 @@ type Configuration struct {
 }
 
 type Agent struct {
-	cfg    HTTPAgent
-	store  storage.MemStorage
-	router *chi.Mux
+	store storage.MemStorage
+	cfg   HTTPAgent
 }
 
 func NewAgentConfig() (Configuration, error) {
 	var cfg Configuration
 
-	var defaultRunAddr string = "localhost:8080"
+	var defaultRunAddr = "localhost:8080"
 	var defaultReportInterval uint64 = 10
 	var defaultPollInterval uint64 = 2
 
@@ -59,7 +56,7 @@ func NewAgentConfig() (Configuration, error) {
 	if ok {
 		ReportInterval, err := strconv.ParseUint(envReportInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %v", ReportInterval, err)
+			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", ReportInterval, err)
 		}
 	}
 	cfg.ReportInterval = ReportInterval
@@ -69,7 +66,7 @@ func NewAgentConfig() (Configuration, error) {
 	if ok {
 		PollInterval, err := strconv.ParseUint(envPollInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %v", PollInterval, err)
+			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", PollInterval, err)
 		}
 	}
 	cfg.PollInterval = PollInterval
