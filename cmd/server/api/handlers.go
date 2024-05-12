@@ -68,17 +68,18 @@ func getAllMetrics(s *Server) string {
 
 func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	var ErrItemNotFound = errors.New("item not found")
+	// var ErrItemNotFound = errors.New("item not found")
 
 	mType := chi.URLParam(r, "mtype")
 	mName := chi.URLParam(r, "mname")
 	mValue, err := s.getSingleMetric(mType, mName)
-
 	if err != nil {
-		if errors.Is(err, ErrItemNotFound) {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+		//if errors.Is(err, ErrItemNotFound) { // по како-то непонятной причине этот код (сравнение ошибки с ErrItemNotFound) не срабоатывает никак
+		//	http.Error(w, err.Error(), http.StatusNotFound)
+		//	return
+		//}
 	}
 
 	w.Header().Set("Content-Type", "text/html")
