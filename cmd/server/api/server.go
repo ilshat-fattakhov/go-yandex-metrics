@@ -40,6 +40,5 @@ func (s *Server) routes() {
 		r.Get("/", s.IndexHandler)
 		r.Get("/value/{mtype}/{mname}", s.GetHandler)
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler)
-
 	})
 }
