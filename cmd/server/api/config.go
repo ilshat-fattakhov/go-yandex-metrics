@@ -19,8 +19,8 @@ type Configuration struct {
 
 type Server struct {
 	store  storage.MemStorage
-	cfg    HTTPServer
 	router *chi.Mux
+	cfg    HTTPServer
 }
 
 func NewServerConfig() (Configuration, error) {

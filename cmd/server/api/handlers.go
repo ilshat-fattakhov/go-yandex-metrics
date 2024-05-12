@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -26,19 +27,31 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	tpl := `{{.}}`
 	t, err := template.New("All Metrics").Parse(tpl)
 	if err != nil {
-		logger.Error(fmt.Sprintf("an error occured parsing template: %v", err))
+		logger.LogAttrs(
+			context.Background(),
+			slog.LevelError,
+			fmt.Sprintf("an error occured parsing template: %v", err),
+		)
 	}
 
 	var doc bytes.Buffer
 	err = t.Execute(&doc, allMetrics)
 	if err != nil {
-		logger.Error(fmt.Sprintf("an error occured converting template data: %v", err))
+		logger.LogAttrs(
+			context.Background(),
+			slog.LevelError,
+			fmt.Sprintf("an error occured converting template data: %v", err),
+		)
 	}
 
 	html := doc.String()
 	_, err = w.Write([]byte(html))
 	if err != nil {
-		logger.Error(fmt.Sprintf("an error occured writing to browser: %v", err))
+		logger.LogAttrs(
+			context.Background(),
+			slog.LevelError,
+			fmt.Sprintf("an error occured writing to browser: %v", err),
+		)
 	}
 }
 
@@ -76,18 +89,30 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	tpl := `{{.}}`
 	t, err := template.New("Single Metric").Parse(tpl)
 	if err != nil {
-		logger.Error(fmt.Sprintf("an error occured parsing template: %v", err))
+		logger.LogAttrs(
+			context.Background(),
+			slog.LevelError,
+			fmt.Sprintf("an error occured parsing template: %v", err),
+		)
 	}
 
 	var doc bytes.Buffer
 	err = t.Execute(&doc, mValue)
 	if err != nil {
-		logger.Error(fmt.Sprintf("an error occured converting template data: %v", err))
+		logger.LogAttrs(
+			context.Background(),
+			slog.LevelError,
+			fmt.Sprintf("an error occured converting template data: %v", err),
+		)
 	}
 	html := doc.String()
 	_, err = w.Write([]byte(html))
 	if err != nil {
-		logger.Error(fmt.Sprintf("an error occured writing to browser: %v", err))
+		logger.LogAttrs(
+			context.Background(),
+			slog.LevelError,
+			fmt.Sprintf("an error occured writing to browser: %v", err),
+		)
 	}
 }
 

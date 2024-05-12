@@ -7,18 +7,12 @@ import (
 )
 
 func TestServer_UpdateHandler(t *testing.T) {
-	type args struct {
-		w http.ResponseWriter
-		r *http.Request
-	}
 	type want struct {
 		code        int
 		contentType string
 	}
-
 	tests := []struct {
 		s       *Server
-		args    args
 		name    string
 		method  string
 		url     string
@@ -82,7 +76,6 @@ func TestServer_UpdateHandler(t *testing.T) {
 			r := httptest.NewRequest(tt.method, tt.url, http.NoBody)
 			w := httptest.NewRecorder()
 			tt.s.UpdateHandler(w, r)
-
 		})
 	}
 }
