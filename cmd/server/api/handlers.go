@@ -79,7 +79,7 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 		// if errors.Is(err, ErrItemNotFound) { // по како-то непонятной причине этот код (сравнение ошибки с ErrItemNotFound) не срабоатывает никак
 		//	http.Error(w, err.Error(), http.StatusNotFound)
 		//	return
-		//}
+		// }
 	}
 
 	w.Header().Set("Content-Type", "text/html")
