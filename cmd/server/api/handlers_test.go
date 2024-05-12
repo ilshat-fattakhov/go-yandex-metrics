@@ -1,20 +1,24 @@
-package main
+package api
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"go-yandex-metrics/cmd/server/handlers"
 )
 
-func TestUpdateHandler(t *testing.T) {
+func TestServer_UpdateHandler(t *testing.T) {
+	type args struct {
+		w http.ResponseWriter
+		r *http.Request
+	}
 	type want struct {
-		code int
-
+		code        int
 		contentType string
 	}
+
 	tests := []struct {
+		s       *Server
+		args    args
 		name    string
 		method  string
 		url     string
@@ -77,7 +81,8 @@ func TestUpdateHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := httptest.NewRequest(tt.method, tt.url, http.NoBody)
 			w := httptest.NewRecorder()
-			handlers.UpdateHandler(w, r)
+			tt.s.UpdateHandler(w, r)
+
 		})
 	}
 }

@@ -1,12 +1,24 @@
 package main
 
 import (
-	"go-yandex-metrics/cmd/agent/handlers"
+	"context"
 	"log"
+
+	"go-yandex-metrics/cmd/agent/api"
+	"go-yandex-metrics/internal/storage"
 )
 
 func main() {
-	if err := handlers.RunAgent(); err != nil {
-		log.Fatal(err)
+	ctx := context.Background()
+	cfg, err := api.NewAgentConfig()
+	if err != nil {
+		log.Fatal("failed to create config: %w", err)
+	}
+	store := storage.NewMemStorage()
+	agent := api.NewAgent(cfg.HTTPAgent, store)
+
+	err = agent.Start(ctx)
+	if err != nil {
+		log.Fatal("failed to start agent %w", err)
 	}
 }
