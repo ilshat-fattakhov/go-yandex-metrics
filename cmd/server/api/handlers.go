@@ -76,7 +76,7 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
-		//if errors.Is(err, ErrItemNotFound) { // по како-то непонятной причине этот код (сравнение ошибки с ErrItemNotFound) не срабоатывает никак
+		// if errors.Is(err, ErrItemNotFound) { // по како-то непонятной причине этот код (сравнение ошибки с ErrItemNotFound) не срабоатывает никак
 		//	http.Error(w, err.Error(), http.StatusNotFound)
 		//	return
 		//}
