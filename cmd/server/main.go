@@ -1,34 +1,23 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
-	"log/slog"
-	"os"
 
-	"go-yandex-metrics/cmd/server/api"
+	"go-yandex-metrics/internal/api"
 	"go-yandex-metrics/internal/storage"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	ctx := context.Background()
 	cfg, err := api.NewServerConfig()
 	if err != nil {
-		logger.LogAttrs(
-			context.Background(),
-			slog.LevelError,
-			fmt.Sprintf("failed to create config: %v", err),
-		)
+		log.Fatalf("failed to create config: %v", err)
 	}
 
 	store := storage.NewMemStorage()
-	server := api.NewServer(cfg.HTTPServer, store)
+	server := api.NewServer(cfg, store)
 
-	err = server.Start(ctx)
+	err = server.Start()
 	if err != nil {
-		log.Fatal("failed to start server %w", err)
+		log.Fatalf("failed to start server %v", err)
 	}
 }

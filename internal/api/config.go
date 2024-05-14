@@ -5,37 +5,47 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-
-	"go-yandex-metrics/internal/storage"
 )
 
-type HTTPAgent struct {
+type ServerCfg struct {
+	Host string
+}
+
+type AgentCfg struct {
 	Host           string
 	PollInterval   uint64
 	ReportInterval uint64
 }
 
-type Configuration struct {
-	HTTPAgent
+func NewServerConfig() (ServerCfg, error) {
+	var cfg ServerCfg
+
+	const defaultRunAddr = "localhost:8080"
+	var flagRunAddr string
+
+	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
+	flag.Parse()
+
+	cfg.Host = flagRunAddr
+	envRunAddr, ok := os.LookupEnv("ADDRESS")
+	if ok {
+		cfg.Host = envRunAddr
+	}
+	return cfg, nil
 }
 
-type Agent struct {
-	store storage.MemStorage
-	cfg   HTTPAgent
-}
+func NewAgentConfig() (AgentCfg, error) {
+	var cfg AgentCfg
 
-func NewAgentConfig() (Configuration, error) {
-	var cfg Configuration
-
-	var defaultRunAddr = "localhost:8080"
-	var defaultReportInterval uint64 = 10
-	var defaultPollInterval uint64 = 2
+	const defaultRunAddr = "localhost:8080"
+	const defaultReportInterval uint64 = 10
+	const defaultPollInterval uint64 = 2
 
 	var flagRunAddr string
 	var flagReportInterval uint64
 	var flagPollInterval uint64
 
-	var RunAddr string
+	var runAddr string
 	var ReportInterval uint64
 	var PollInterval uint64
 
@@ -44,12 +54,12 @@ func NewAgentConfig() (Configuration, error) {
 	flag.Uint64Var(&flagReportInterval, "r", defaultReportInterval, "data report interval")
 	flag.Parse()
 
-	RunAddr = flagRunAddr
+	runAddr = flagRunAddr
 	envRunAddr, ok := os.LookupEnv("ADDRESS")
 	if ok {
-		RunAddr = envRunAddr
+		runAddr = envRunAddr
 	}
-	cfg.Host = RunAddr
+	cfg.Host = runAddr
 
 	ReportInterval = flagReportInterval
 	envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL")
