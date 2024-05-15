@@ -15,6 +15,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const (
+	GaugeType   string = "gauge"
+	CounterType string = "counter"
+)
+
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("charset", "utf-8")
@@ -89,14 +94,14 @@ func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 	var ErrItemNotFound = errors.New("item not found")
 
 	switch mType {
-	case "gauge":
+	case GaugeType:
 		if mValue, ok := s.store.Gauge[mName]; !ok {
 			return "", ErrItemNotFound
 		} else {
 			html = strconv.FormatFloat(mValue, 'f', -1, 64)
 			return html, nil
 		}
-	case "counter":
+	case CounterType:
 		if mValue, ok := s.store.Counter[mName]; !ok {
 			return "", ErrItemNotFound
 		} else {
@@ -118,7 +123,7 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
 
-	if mType == "gauge" || mType == "counter" {
+	if mType == GaugeType || mType == CounterType {
 		s.Save(mType, mName, mValue, w)
 	} else {
 		w.WriteHeader(http.StatusNotImplemented)
@@ -128,9 +133,9 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Save(mType, mName, mValue string, w http.ResponseWriter) {
 	switch mType {
-	case "counter":
+	case CounterType:
 		s.saveCounter(mName, mValue, w)
-	case "gauge":
+	case GaugeType:
 		s.saveGauge(mName, mValue, w)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -195,75 +200,57 @@ func (a *Agent) SaveMetrics() error {
 }
 
 func (a *Agent) SendMetrics() error {
-	c := http.Client{Timeout: time.Duration(1) * time.Second}
-
 	for n, v := range a.store.Gauge {
 		value := strconv.FormatFloat(v, 'f', -1, 64)
 
-		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", "gauge", n, value)
+		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", GaugeType, n, value)
 		if err != nil {
 			log.Println("failed to join path parts: %w", err)
 			return nil
 		}
 
-		req, err := http.NewRequest(http.MethodPost, sendURL, http.NoBody)
-		req.Header.Add("Content-Type", "text/plain")
-		req.Header.Add("Content-Length", "0")
-
-		if err != nil {
-			continue
-		}
-
-		resp, err := c.Do(req)
-		if err != nil {
-			log.Println("failed to do a request: %w", err)
-			return nil
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				log.Println("failed to close response body: %w", err)
-				return
-			}
-		}()
-		if resp.StatusCode != http.StatusOK {
-			log.Println("unexpected response code while sending gauge metrics: %w", resp.StatusCode)
-			return nil
-		}
+		sendData(http.MethodPost, sendURL)
 	}
 
 	for n, v := range a.store.Counter {
 		value := strconv.Itoa(int(v))
-		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", "counter", n, value)
+		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", CounterType, n, value)
 		if err != nil {
 			log.Println("failed to join path parts: %w", err)
 			return nil
 		}
-		req, err := http.NewRequest(http.MethodPost, sendURL, http.NoBody)
-		if err != nil {
-			log.Println("failed to do an HTTP POST request: %w", err)
-			return nil
-		}
 
-		req.Header.Add("Content-Type", "text/plain")
-		req.Header.Add("Content-Length", "0")
-
-		resp, err := c.Do(req)
-		if err != nil {
-			log.Println("failed to do a request: %w", err)
-			return nil
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				log.Println("failed to close response body: %w", err)
-				return
-			}
-		}()
-		if resp.StatusCode != http.StatusOK {
-			log.Println("unexpected response code while sending counter metrics: %w", resp.StatusCode)
-			return nil
-		}
-
-		a.store.Counter["PollCount"] = 0
+		sendData(http.MethodPost, sendURL)
 	}
+
+	a.store.Counter["PollCount"] = 0
 	return nil
+}
+
+func sendData(method, sendURL string) {
+	c := http.Client{Timeout: time.Duration(1) * time.Second}
+
+	req, err := http.NewRequest(method, sendURL, http.NoBody)
+	req.Header.Add("Content-Type", "text/plain")
+	req.Header.Add("Content-Length", "0")
+
+	if err != nil {
+		log.Println("failed to create a request: %w", err)
+		return
+	}
+
+	resp, err := c.Do(req)
+	if err != nil {
+		log.Println("failed to do a request: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Println("failed to close response body: %w", err)
+			return
+		}
+	}()
+	if resp.StatusCode != http.StatusOK {
+		log.Println("unexpected response code while sending gauge metrics: %w", resp.StatusCode)
+		return
+	}
 }
