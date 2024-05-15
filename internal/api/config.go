@@ -76,7 +76,7 @@ func NewAgentConfig() (AgentCfg, error) {
 	if ok {
 		PollInterval, err := strconv.ParseUint(envPollInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", PollInterval, err)
+			return cfg, fmt.Errorf("failed to parse %d as a poll interval value: %w", PollInterval, err)
 		}
 	}
 	cfg.PollInterval = PollInterval
