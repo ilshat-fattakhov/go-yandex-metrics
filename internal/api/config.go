@@ -7,6 +7,11 @@ import (
 	"strconv"
 )
 
+const (
+	GaugeType   string = "gauge"
+	CounterType string = "counter"
+)
+
 type ServerCfg struct {
 	Host string
 }
