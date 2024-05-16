@@ -17,11 +17,11 @@ type ServerCfg struct {
 }
 
 type Server struct {
+	tSingle *template.Template
+	tAll    *template.Template
 	store   *storage.MemStorage
 	router  *chi.Mux
 	cfg     config.ServerCfg
-	tSingle *template.Template
-	tAll    *template.Template
 }
 
 func NewServer(cfg config.ServerCfg, store *storage.MemStorage) *Server {
@@ -73,7 +73,6 @@ func createTemplate(w string) *template.Template {
 		t, err := template.New("All Metrics").Parse(tpl)
 		if err != nil {
 			log.Fatalf("an error occured parsing template for all metrics: %v", err)
-
 		}
 		tplt = t
 	}
