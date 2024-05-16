@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"text/template"
 
 	"go-yandex-metrics/internal/config"
 
@@ -19,14 +18,10 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	allMetrics := getAllMetrics(s)
-	tpl := `{{.}}`
-	t, err := template.New("All Metrics").Parse(tpl)
-	if err != nil {
-		log.Printf("an error occured parsing template: %v", err)
-	}
 
+	t := s.tAll
 	var doc bytes.Buffer
-	err = t.Execute(&doc, allMetrics)
+	err := t.Execute(&doc, allMetrics)
 	if err != nil {
 		log.Printf("an error occured converting template data: %v", err)
 	}
@@ -64,12 +59,7 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("charset", "utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	tpl := `{{.}}`
-	t, err := template.New("Single Metric").Parse(tpl)
-	if err != nil {
-		log.Printf("an error occured parsing template: %v", err)
-	}
-
+	t := s.tSingle
 	var doc bytes.Buffer
 	err = t.Execute(&doc, mValue)
 	if err != nil {
@@ -119,7 +109,7 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	if mType == config.GaugeType || mType == config.CounterType {
 		s.Save(mType, mName, mValue, w)
 	} else {
-		w.WriteHeader(http.StatusNotImplemented)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }

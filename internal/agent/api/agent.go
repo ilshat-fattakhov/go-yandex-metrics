@@ -15,16 +15,15 @@ type AgentCfg struct {
 }
 
 type Agent struct {
-	store storage.MemStorage
+	store *storage.MemStorage
 	cfg   config.AgentCfg
 }
 
 func NewAgent(cfg config.AgentCfg, store *storage.MemStorage) *Agent {
 	agt := &Agent{
 		cfg:   cfg,
-		store: *store,
+		store: store,
 	}
-
 	return agt
 }
 
