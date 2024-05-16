@@ -3,12 +3,13 @@ package main
 import (
 	"log"
 
-	"go-yandex-metrics/internal/api"
+	"go-yandex-metrics/internal/config"
+	"go-yandex-metrics/internal/server/api"
 	"go-yandex-metrics/internal/storage"
 )
 
 func main() {
-	cfg, err := api.NewServerConfig()
+	cfg, err := config.NewServerConfig()
 	if err != nil {
 		log.Fatalf("failed to create config: %v", err)
 	}

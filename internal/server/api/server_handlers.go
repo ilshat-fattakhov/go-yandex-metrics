@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"text/template"
 
+	"go-yandex-metrics/internal/config"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -20,19 +22,19 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	tpl := `{{.}}`
 	t, err := template.New("All Metrics").Parse(tpl)
 	if err != nil {
-		log.Println("an error occured parsing template: %w", err)
+		log.Printf("an error occured parsing template: %v", err)
 	}
 
 	var doc bytes.Buffer
 	err = t.Execute(&doc, allMetrics)
 	if err != nil {
-		log.Println("an error occured converting template data: %w", err)
+		log.Printf("an error occured converting template data: %v", err)
 	}
 
 	html := doc.String()
 	_, err = w.Write([]byte(html))
 	if err != nil {
-		log.Println("an error occured writing to browser: %w", err)
+		log.Printf("an error occured writing to browser: %v", err)
 	}
 }
 
@@ -65,18 +67,18 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 	tpl := `{{.}}`
 	t, err := template.New("Single Metric").Parse(tpl)
 	if err != nil {
-		log.Println("an error occured parsing template: %w", err)
+		log.Printf("an error occured parsing template: %v", err)
 	}
 
 	var doc bytes.Buffer
 	err = t.Execute(&doc, mValue)
 	if err != nil {
-		log.Println("an error occured converting template data: %w", err)
+		log.Printf("an error occured converting template data: %v", err)
 	}
 	html := doc.String()
 	_, err = w.Write([]byte(html))
 	if err != nil {
-		log.Println("an error occured writing to browser: %w", err)
+		log.Printf("an error occured writing to browser: %v", err)
 	}
 }
 
@@ -85,14 +87,14 @@ func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 	var ErrItemNotFound = errors.New("item not found")
 
 	switch mType {
-	case GaugeType:
+	case config.GaugeType:
 		if mValue, ok := s.store.Gauge[mName]; !ok {
 			return "", ErrItemNotFound
 		} else {
 			html = strconv.FormatFloat(mValue, 'f', -1, 64)
 			return html, nil
 		}
-	case CounterType:
+	case config.CounterType:
 		if mValue, ok := s.store.Counter[mName]; !ok {
 			return "", ErrItemNotFound
 		} else {
@@ -114,7 +116,7 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "mname")
 	mValue := chi.URLParam(r, "mvalue")
 
-	if mType == GaugeType || mType == CounterType {
+	if mType == config.GaugeType || mType == config.CounterType {
 		s.Save(mType, mName, mValue, w)
 	} else {
 		w.WriteHeader(http.StatusNotImplemented)
@@ -124,9 +126,9 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Save(mType, mName, mValue string, w http.ResponseWriter) {
 	switch mType {
-	case CounterType:
+	case config.CounterType:
 		s.saveCounter(mName, mValue, w)
-	case GaugeType:
+	case config.GaugeType:
 		s.saveGauge(mName, mValue, w)
 	default:
 		w.WriteHeader(http.StatusBadRequest)

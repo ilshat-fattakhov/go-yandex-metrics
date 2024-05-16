@@ -4,15 +4,22 @@ import (
 	"log"
 	"time"
 
+	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/storage"
 )
 
-type Agent struct {
-	store storage.MemStorage
-	cfg   AgentCfg
+type AgentCfg struct {
+	Host           string
+	PollInterval   uint64
+	ReportInterval uint64
 }
 
-func NewAgent(cfg AgentCfg, store *storage.MemStorage) *Agent {
+type Agent struct {
+	store storage.MemStorage
+	cfg   config.AgentCfg
+}
+
+func NewAgent(cfg config.AgentCfg, store *storage.MemStorage) *Agent {
 	agt := &Agent{
 		cfg:   cfg,
 		store: *store,
@@ -30,13 +37,13 @@ func (a *Agent) Start() error {
 		case <-tickerSave.C:
 			err := a.SaveMetrics()
 			if err != nil {
-				log.Println("failed to save metrics: %w", err)
+				log.Printf("failed to save metrics: %v", err)
 				return nil
 			}
 		case <-tickerSend.C:
 			err := a.SendMetrics()
 			if err != nil {
-				log.Println("failed to send metrics: %w", err)
+				log.Printf("failed to send metrics: %v", err)
 				return nil
 			}
 		}

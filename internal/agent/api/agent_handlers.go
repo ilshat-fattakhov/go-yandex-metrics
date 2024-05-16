@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+
+	"go-yandex-metrics/internal/config"
 )
 
 func (a *Agent) SaveMetrics() error {
@@ -51,9 +53,9 @@ func (a *Agent) SendMetrics() error {
 	for n, v := range a.store.Gauge {
 		value := strconv.FormatFloat(v, 'f', -1, 64)
 
-		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", GaugeType, n, value)
+		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", config.GaugeType, n, value)
 		if err != nil {
-			log.Println("failed to join path parts: %w", err)
+			log.Printf("failed to join path parts: %v", err)
 			return nil
 		}
 
@@ -62,9 +64,9 @@ func (a *Agent) SendMetrics() error {
 
 	for n, v := range a.store.Counter {
 		value := strconv.Itoa(int(v))
-		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", CounterType, n, value)
+		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", config.CounterType, n, value)
 		if err != nil {
-			log.Println("failed to join path parts: %w", err)
+			log.Printf("failed to join path parts: %v", err)
 			return nil
 		}
 
@@ -83,22 +85,22 @@ func sendData(method, sendURL string) {
 	req.Header.Add("Content-Length", "0")
 
 	if err != nil {
-		log.Println("failed to create a request: %w", err)
+		log.Printf("failed to create a request: %v", err)
 		return
 	}
 
 	resp, err := c.Do(req)
 	if err != nil {
-		log.Println("failed to do a request: %w", err)
+		log.Printf("failed to do a request: %v", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Println("failed to close response body: %w", err)
+			log.Printf("failed to close response body: %v", err)
 			return
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
-		log.Println("unexpected response code while sending gauge metrics: %w", resp.StatusCode)
+		log.Printf("unexpected response code while sending gauge metrics: %v", resp.StatusCode)
 		return
 	}
 }

@@ -7,16 +7,21 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/storage"
 )
+
+type ServerCfg struct {
+	Host string
+}
 
 type Server struct {
 	store  storage.MemStorage
 	router *chi.Mux
-	cfg    ServerCfg
+	cfg    config.ServerCfg
 }
 
-func NewServer(cfg ServerCfg, store *storage.MemStorage) *Server {
+func NewServer(cfg config.ServerCfg, store *storage.MemStorage) *Server {
 	srv := &Server{
 		cfg:    cfg,
 		store:  *store,
@@ -34,7 +39,7 @@ func (s *Server) Start() error {
 	}
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
-			log.Println("HTTP server has encountered an error %w", err)
+			log.Printf("HTTP server has encountered an error %v", err)
 			return nil
 		}
 	}
