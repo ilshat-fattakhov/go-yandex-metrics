@@ -27,7 +27,7 @@ type Server struct {
 func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error) {
 	tpl, err := createTemplate()
 	if err != nil {
-		return nil, fmt.Errorf("an error occured parsing metrics template: %v", err)
+		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 	srv := &Server{
 		store:  store,
@@ -65,7 +65,7 @@ func createTemplate() (*template.Template, error) {
 	tpl := `{{.}}`
 	t, err := template.New("Metrics Template").Parse(tpl)
 	if err != nil {
-		return nil, fmt.Errorf("an error occured parsing metrics template: %v", err)
+		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 	return t, nil
 }
