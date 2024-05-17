@@ -19,6 +19,9 @@ cmd/server/server
 
 # Dependency directories (remove the comment below to include it)
 vendor/
+tests/
+go-resty/
+golangci-lint/
 
 # IDEs directories
 .idea
