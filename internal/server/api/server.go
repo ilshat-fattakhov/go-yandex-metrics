@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"text/template"
@@ -17,23 +18,25 @@ type ServerCfg struct {
 }
 
 type Server struct {
-	tSingle *template.Template
-	tAll    *template.Template
-	store   *storage.MemStorage
-	router  *chi.Mux
-	cfg     config.ServerCfg
+	tpl    *template.Template
+	store  *storage.MemStorage
+	router *chi.Mux
+	cfg    config.ServerCfg
 }
 
-func NewServer(cfg config.ServerCfg, store *storage.MemStorage) *Server {
+func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error) {
+	tpl, err := createTemplate()
+	if err != nil {
+		return nil, fmt.Errorf("an error occured parsing metrics template: %v", err)
+	}
 	srv := &Server{
-		store:   store,
-		router:  chi.NewRouter(),
-		cfg:     cfg,
-		tSingle: createTemplate("one"),
-		tAll:    createTemplate("all"),
+		store:  store,
+		router: chi.NewRouter(),
+		cfg:    cfg,
+		tpl:    tpl,
 	}
 	srv.routes()
-	return srv
+	return srv, nil
 }
 
 func (s *Server) Start() error {
@@ -58,23 +61,11 @@ func (s *Server) routes() {
 	})
 }
 
-func createTemplate(w string) *template.Template {
-	var tplt *template.Template
-	switch w {
-	case "one":
-		tpl := `{{.}}`
-		t, err := template.New("Single Metric").Parse(tpl)
-		if err != nil {
-			log.Fatalf("an error occured parsing template for single metric: %v", err)
-		}
-		tplt = t
-	case "all":
-		tpl := `{{.}}`
-		t, err := template.New("All Metrics").Parse(tpl)
-		if err != nil {
-			log.Fatalf("an error occured parsing template for all metrics: %v", err)
-		}
-		tplt = t
+func createTemplate() (*template.Template, error) {
+	tpl := `{{.}}`
+	t, err := template.New("Metrics Template").Parse(tpl)
+	if err != nil {
+		return nil, fmt.Errorf("an error occured parsing metrics template: %v", err)
 	}
-	return tplt
+	return t, nil
 }

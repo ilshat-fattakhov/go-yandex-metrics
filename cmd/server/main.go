@@ -15,7 +15,10 @@ func main() {
 	}
 
 	store := storage.NewMemStorage()
-	server := api.NewServer(cfg, store)
+	server, err := api.NewServer(cfg, store)
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
 
 	err = server.Start()
 	if err != nil {

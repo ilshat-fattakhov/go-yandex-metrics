@@ -13,18 +13,20 @@ import (
 )
 
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	w.Header().Set("charset", "utf-8")
-	w.WriteHeader(http.StatusOK)
-
 	allMetrics := getAllMetrics(s)
 
-	t := s.tAll
+	t := s.tpl
 	var doc bytes.Buffer
 	err := t.Execute(&doc, allMetrics)
 	if err != nil {
-		log.Printf("an error occured converting template data: %v", err)
+		log.Printf("an error occured processing template data: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("charset", "utf-8")
+	w.WriteHeader(http.StatusOK)
 
 	html := doc.String()
 	_, err = w.Write([]byte(html))
@@ -55,16 +57,19 @@ func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	t := s.tpl
+	var doc bytes.Buffer
+	err = t.Execute(&doc, mValue)
+	if err != nil {
+		log.Printf("an error occured processing template data: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("charset", "utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	t := s.tSingle
-	var doc bytes.Buffer
-	err = t.Execute(&doc, mValue)
-	if err != nil {
-		log.Printf("an error occured converting template data: %v", err)
-	}
 	html := doc.String()
 	_, err = w.Write([]byte(html))
 	if err != nil {
