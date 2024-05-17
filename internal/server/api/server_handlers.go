@@ -113,6 +113,8 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	if mType == config.GaugeType || mType == config.CounterType {
 		s.Save(mType, mName, mValue, w)
+		w.WriteHeader(http.StatusOK)
+		return
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		return
