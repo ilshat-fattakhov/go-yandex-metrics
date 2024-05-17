@@ -57,7 +57,12 @@ func (s *Server) Start() error {
 
 func (s *Server) routes() {
 	logger, _ := zap.NewProduction()
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			log.Printf("failed to sync logger: %v", err)
+			return
+		}
+	}()
 
 	s.router.Route("/", func(r chi.Router) {
 		r.Use(lg.Logger(logger))
