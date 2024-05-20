@@ -1,6 +1,9 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -10,7 +13,11 @@ import (
 	"time"
 
 	"go-yandex-metrics/internal/config"
+	"go-yandex-metrics/internal/logger"
+	"go-yandex-metrics/internal/storage"
 )
+
+const updatePath = "update"
 
 func (a *Agent) SaveMetrics() error {
 	m := new(runtime.MemStats)
@@ -53,23 +60,21 @@ func (a *Agent) SendMetrics() error {
 	for n, v := range a.store.Gauge {
 		value := strconv.FormatFloat(v, 'f', -1, 64)
 
-		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", config.GaugeType, n, value)
+		sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, config.GaugeType, n, value)
 		if err != nil {
-			log.Printf("failed to join path parts: %v", err)
+			log.Printf("failed to join path parts for gauge POST URL: %v", err)
 			return nil
 		}
-
 		sendData(http.MethodPost, sendURL)
 	}
 
 	for n, v := range a.store.Counter {
 		value := strconv.Itoa(int(v))
-		sendURL, err := url.JoinPath("http://", a.cfg.Host, "update", config.CounterType, n, value)
+		sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, config.CounterType, n, value)
 		if err != nil {
-			log.Printf("failed to join path parts: %v", err)
+			log.Printf("failed to join path parts for counter POST URL: %v", err)
 			return nil
 		}
-
 		sendData(http.MethodPost, sendURL)
 	}
 
@@ -101,6 +106,84 @@ func sendData(method, sendURL string) {
 	}()
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("unexpected response code while sending gauge metrics: %v", resp.StatusCode)
+		return
+	}
+}
+
+func (a *Agent) SendMetricsJSON() error {
+	for n, v := range a.store.Gauge {
+		a.sendDataJSON(v, n, config.GaugeType, http.MethodPost)
+	}
+
+	for n, v := range a.store.Counter {
+		a.sendDataJSON(v, n, config.CounterType, http.MethodPost)
+	}
+
+	a.store.Counter["PollCount"] = 0
+	return nil
+}
+
+func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
+	logger := logger.InitLogger()
+
+	var metric = storage.Metrics{}
+
+	switch mType {
+	case config.GaugeType:
+		switch i := v.(type) {
+		case float64:
+			metric = storage.Metrics{ID: n, MType: config.GaugeType, Value: &i}
+		default:
+			return
+		}
+	case config.CounterType:
+		switch i := v.(type) {
+		case int64:
+			metric = storage.Metrics{ID: n, MType: config.CounterType, Delta: &i}
+		default:
+			return
+		}
+	}
+
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(metric)
+
+	if err != nil {
+		log.Printf("failed to JSON encode gauge metric: %v", err)
+		return
+	}
+
+	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
+	if err != nil {
+		log.Printf("failed to join path parts for gauge JSON POST URL: %v", err)
+		return
+	}
+
+	logger.Info("Sending data to URL: " + sendURL)
+
+	c := http.Client{Timeout: time.Duration(1) * time.Second}
+
+	req, err := http.NewRequest(method, sendURL, &buf)
+	req.Header.Add("Content-Type", "application/json")
+	// req.Header.Add("Content-Length", "0")
+
+	if err != nil {
+		log.Printf("failed to create a request: %v", err)
+		return
+	}
+	fmt.Println(req)
+	resp, err := c.Do(req)
+	if err != nil {
+		log.Printf("failed to do a request: %v", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+			return
+		}
+	}()
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("unexpected response code while sending metrics: %v", resp.StatusCode)
 		return
 	}
 }

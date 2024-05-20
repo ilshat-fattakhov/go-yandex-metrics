@@ -8,10 +8,9 @@ import (
 	"text/template"
 
 	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
-	lg "go-yandex-metrics/internal/logger"
+	"go-yandex-metrics/internal/logger"
 	"go-yandex-metrics/internal/storage"
 )
 
@@ -56,18 +55,14 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) routes() {
-	logger, _ := zap.NewProduction()
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			log.Printf("failed to sync logger: %v", err)
-			return
-		}
-	}()
+	logger := logger.InitLogger()
 
 	s.router.Route("/", func(r chi.Router) {
-		r.Use(lg.Logger(logger))
+		//r.Use(logger.Logger(logger))
 		r.Get("/", s.IndexHandler)
 		r.Get("/value/{mtype}/{mname}", s.GetHandler)
+		r.Post("/value/", s.GetHandlerJSON(logger))
+		r.Post("/update/", s.UpdateHandlerJSON(logger))
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler)
 	})
 }
