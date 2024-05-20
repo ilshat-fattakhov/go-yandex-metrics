@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -176,10 +175,10 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 		log.Printf("failed to create a request: %v", err)
 		return
 	}
-	fmt.Println(req)
 	resp, err := c.Do(req)
 	if err != nil {
 		log.Printf("failed to do a request: %v", err)
+		log.Printf("received response: %v", resp)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
