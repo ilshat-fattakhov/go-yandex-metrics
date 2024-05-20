@@ -58,9 +58,8 @@ func (s *Server) routes() {
 	logger := logger.InitLogger()
 
 	s.router.Route("/", func(r chi.Router) {
-		//r.Use(logger.Logger(logger))
 		r.Get("/", s.IndexHandler)
-		r.Get("/value/{mtype}/{mname}", s.GetHandler)
+		r.Get("/value/{mtype}/{mname}", s.GetHandler(logger))
 		r.Post("/value/", s.GetHandlerJSON(logger))
 		r.Post("/update/", s.UpdateHandlerJSON(logger))
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler)
