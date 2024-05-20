@@ -55,13 +55,13 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) routes() {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	s.router.Route("/", func(r chi.Router) {
 		r.Get("/", s.IndexHandler)
-		r.Get("/value/{mtype}/{mname}", s.GetHandler(logger))
-		r.Post("/value/", s.GetHandlerJSON(logger))
-		r.Post("/update/", s.UpdateHandlerJSON(logger))
+		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
+		r.Post("/value/", s.GetHandlerJSON(lg))
+		r.Post("/update/", s.UpdateHandlerJSON(lg))
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler)
 	})
 }

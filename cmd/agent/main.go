@@ -10,11 +10,11 @@ import (
 )
 
 func main() {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	cfg, err := config.NewAgentConfig()
 	if err != nil {
-		logger.Error("Failed to create agent config")
+		lg.Error("Failed to create agent config")
 		log.Fatalf("failed to create config: %v", err)
 	}
 
@@ -23,7 +23,7 @@ func main() {
 
 	err = agent.Start()
 	if err != nil {
-		logger.Error("Failed to start agent")
+		lg.Error("Failed to start agent")
 		log.Fatalf("failed to start agent %v", err)
 	}
 }

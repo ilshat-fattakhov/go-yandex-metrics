@@ -59,7 +59,7 @@ func getAllMetrics(s *Server) string {
 	return html
 }
 
-func (s *Server) GetHandler(logger *zap.Logger) http.HandlerFunc {
+func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
@@ -69,7 +69,7 @@ func (s *Server) GetHandler(logger *zap.Logger) http.HandlerFunc {
 		}
 		t1 := time.Now()
 		defer func() {
-			logger.Info("Request info",
+			lg.Info("Request info",
 				zap.String("URI", r.RequestURI),
 				zap.String("method", r.Method),
 				zap.String("body", string(body)),
@@ -77,7 +77,7 @@ func (s *Server) GetHandler(logger *zap.Logger) http.HandlerFunc {
 			)
 		}()
 		defer func() {
-			logger.Info("Response info",
+			lg.Info("Response info",
 				zap.Int("status", ww.Status()),
 				zap.Int("size", ww.BytesWritten()),
 			)
@@ -109,7 +109,7 @@ func (s *Server) GetHandler(logger *zap.Logger) http.HandlerFunc {
 	}
 }
 
-func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
+func (s *Server) GetHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
@@ -119,7 +119,7 @@ func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 		}
 		t1 := time.Now()
 		defer func() {
-			logger.Info("Request info",
+			lg.Info("Request info",
 				zap.String("URI", r.RequestURI),
 				zap.String("method", r.Method),
 				zap.String("body", string(body)),
@@ -127,7 +127,7 @@ func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 			)
 		}()
 		defer func() {
-			logger.Info("Response info",
+			lg.Info("Response info",
 				zap.Int("status", ww.Status()),
 				zap.Int("size", ww.BytesWritten()),
 			)
@@ -137,7 +137,7 @@ func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 
 		err = json.Unmarshal(body, &m)
 		if err != nil {
-			logger.Info("Got error decoding JSON request")
+			lg.Info("Got error decoding JSON request")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -145,8 +145,9 @@ func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 		switch m.MType {
 		case config.GaugeType:
 			if mValue, ok := s.store.Gauge[m.ID]; !ok {
-				logger.Info("Gauge value doesn't exist for ID: " + m.ID)
+				lg.Info("Gauge value doesn't exist for ID: " + m.ID)
 				w.WriteHeader(http.StatusNotFound)
+				return
 			} else {
 				w.Header().Add(ContentType, applicationJSON)
 				// w.Header().Add("Content-Length", "0")
@@ -156,14 +157,16 @@ func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
 					log.Printf("failed to JSON encode gauge metric: %v", err)
-					w.WriteHeader(http.StatusGone)
+					w.WriteHeader(http.StatusBadRequest)
+					return
 				}
 
 			}
 		case config.CounterType:
 			if mDelta, ok := s.store.Counter[m.ID]; !ok {
-				logger.Info("Counter value doesn't exist for ID: " + m.ID)
+				lg.Info("Counter value doesn't exist for ID: " + m.ID)
 				w.WriteHeader(http.StatusNotFound)
+				return
 			} else {
 				w.Header().Add(ContentType, applicationJSON)
 				// w.Header().Add("Content-Length", "0")
@@ -173,12 +176,14 @@ func (s *Server) GetHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
 					log.Printf("failed to JSON encode counter metric: %v", err)
-					w.WriteHeader(http.StatusGone)
+					w.WriteHeader(http.StatusBadRequest)
+					return
 				}
 			}
 		default:
-			logger.Info("Wrong metric type: '" + m.MType + "'")
+			lg.Info("Wrong metric type: '" + m.MType + "'")
 			w.WriteHeader(http.StatusNotFound)
+			return
 		}
 	}
 }
@@ -226,14 +231,14 @@ func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Save(mType, mName, mValue string, w http.ResponseWriter) {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	switch mType {
 	case config.CounterType:
-		logger.Info("Saving counter. Name: " + mName + " Value: " + mValue)
+		lg.Info("Saving counter. Name: " + mName + " Value: " + mValue)
 		s.saveCounter(mName, mValue, w)
 	case config.GaugeType:
-		logger.Info("Saving gauge. Name: " + mName + " Value: " + mValue)
+		lg.Info("Saving gauge. Name: " + mName + " Value: " + mValue)
 		s.saveGauge(mName, mValue, w)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -241,34 +246,34 @@ func (s *Server) Save(mType, mName, mValue string, w http.ResponseWriter) {
 }
 
 func (s *Server) saveCounter(mName, mValue string, w http.ResponseWriter) {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	vFloat64, err := strconv.ParseFloat(mValue, 64)
 	if err != nil {
-		logger.Info("Got error pasring float value for counter metric")
+		lg.Info("Got error pasring float value for counter metric")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	vInt64 := int64(vFloat64)
 	s.store.Counter[mName] += vInt64
-	logger.Info("SAVED counter. Name: " + mName + " Value: " + mValue)
+	lg.Info("SAVED counter. Name: " + mName + " Value: " + mValue)
 }
 
 func (s *Server) saveGauge(mName, mValue string, w http.ResponseWriter) {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	vFloat64, err := strconv.ParseFloat(mValue, 64)
 
 	if err != nil {
-		logger.Info("Got error pasring float value for gauge metric")
+		lg.Info("Got error pasring float value for gauge metric")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	s.store.Gauge[mName] = vFloat64
-	logger.Info("SAVED gauge. Name: " + mName + " Value: " + mValue)
+	lg.Info("SAVED gauge. Name: " + mName + " Value: " + mValue)
 }
 
-func (s *Server) UpdateHandlerJSON(logger *zap.Logger) http.HandlerFunc {
+func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
@@ -278,7 +283,7 @@ func (s *Server) UpdateHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 		}
 		t1 := time.Now()
 		defer func() {
-			logger.Info("Request info",
+			lg.Info("Request info",
 				zap.String("URI", r.RequestURI),
 				zap.String("method", r.Method),
 				zap.String("body", string(body)),
@@ -286,7 +291,7 @@ func (s *Server) UpdateHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 			)
 		}()
 		defer func() {
-			logger.Info("Response info",
+			lg.Info("Response info",
 				zap.Int("status", ww.Status()),
 				zap.Int("size", ww.BytesWritten()),
 			)
@@ -299,10 +304,10 @@ func (s *Server) UpdateHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 
 		var m storage.Metrics
 
-		logger.Info("Decoding JSON request")
+		lg.Info("Decoding JSON request")
 		err = json.Unmarshal(body, &m)
 		if err != nil {
-			logger.Info("Got error decoding JSON request")
+			lg.Info("Got error decoding JSON request")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -311,16 +316,26 @@ func (s *Server) UpdateHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 		mName := m.ID
 		var mValueFloat string
 		var mValueInt string
+		var mValueTemp string
 
 		switch mType {
 		case config.GaugeType:
 			mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+
+			lg.Info("Got gauge value from JSON, see next line")
+			lg.Info(mValueFloat)
+
 			s.Save(mType, mName, mValueFloat, w)
 			w.Header().Add(ContentType, applicationJSON)
 			// w.Header().Add("Content-Length", "0")
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.GaugeType, Value: m.Value}
+
+			lg.Info("Sending back gauge value in response body, see next line")
+			mValueTemp = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+			lg.Info(mValueTemp)
+
 			err := json.NewEncoder(w).Encode(metric)
 			if err != nil {
 				log.Printf("failed to JSON encode metric: %v", err)
@@ -342,7 +357,7 @@ func (s *Server) UpdateHandlerJSON(logger *zap.Logger) http.HandlerFunc {
 			}
 			return
 		default:
-			logger.Info("Wrong metric type - neither gauge nor counter")
+			lg.Info("Wrong metric type - neither gauge nor counter")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

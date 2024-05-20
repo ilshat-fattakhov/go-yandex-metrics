@@ -21,7 +21,7 @@ import (
 
 const updatePath = "update"
 
-func (a *Agent) SaveMetrics(logger *zap.Logger) error {
+func (a *Agent) SaveMetrics(lg *zap.Logger) error {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
@@ -58,7 +58,7 @@ func (a *Agent) SaveMetrics(logger *zap.Logger) error {
 	return nil
 }
 
-func (a *Agent) SendMetrics(logger *zap.Logger) error {
+func (a *Agent) SendMetrics(lg *zap.Logger) error {
 	for n, v := range a.store.Gauge {
 		value := strconv.FormatFloat(v, 'f', -1, 64)
 
@@ -67,7 +67,7 @@ func (a *Agent) SendMetrics(logger *zap.Logger) error {
 			log.Printf("failed to join path parts for gauge POST URL: %v", err)
 			return nil
 		}
-		logger.Info("Sending metrics to server")
+		lg.Info("Sending metrics to server")
 		sendData(http.MethodPost, sendURL)
 	}
 
@@ -113,8 +113,8 @@ func sendData(method, sendURL string) {
 	}
 }
 
-func (a *Agent) SendMetricsJSON(logger *zap.Logger) error {
-	logger.Info("sending metrics in JSON format")
+func (a *Agent) SendMetricsJSON(lg *zap.Logger) error {
+	lg.Info("sending metrics in JSON format")
 
 	for n, v := range a.store.Gauge {
 		a.sendDataJSON(v, n, config.GaugeType, http.MethodPost)
@@ -129,7 +129,7 @@ func (a *Agent) SendMetricsJSON(logger *zap.Logger) error {
 }
 
 func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	var metric = storage.Metrics{}
 
@@ -164,7 +164,7 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 		return
 	}
 
-	logger.Info("Sending data to URL: " + sendURL)
+	lg.Info("Sending data to URL: " + sendURL)
 
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
 

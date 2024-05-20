@@ -29,7 +29,7 @@ func NewAgent(cfg config.AgentCfg, store *storage.MemStorage) *Agent {
 }
 
 func (a *Agent) Start() error {
-	logger := logger.InitLogger()
+	lg := logger.InitLogger()
 
 	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
 	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
@@ -37,16 +37,16 @@ func (a *Agent) Start() error {
 	for {
 		select {
 		case <-tickerSave.C:
-			err := a.SaveMetrics(logger)
+			err := a.SaveMetrics(lg)
 			if err != nil {
-				logger.Error("Failed to save metrics")
+				lg.Error("Failed to save metrics")
 				log.Printf("failed to save metrics: %v", err)
 				return nil
 			}
 		case <-tickerSend.C:
-			err := a.SendMetricsJSON(logger)
+			err := a.SendMetricsJSON(lg)
 			if err != nil {
-				logger.Error("Failed to send metrics")
+				lg.Error("Failed to send metrics")
 				log.Printf("failed to send metrics: %v", err)
 				return nil
 			}
