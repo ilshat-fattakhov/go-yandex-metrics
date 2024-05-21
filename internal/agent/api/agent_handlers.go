@@ -90,11 +90,11 @@ func sendData(method, sendURL string) {
 	req, err := http.NewRequest(method, sendURL, http.NoBody)
 	req.Header.Add("Content-Type", "text/plain")
 	req.Header.Add("Content-Length", "0")
-
 	if err != nil {
 		log.Printf("failed to create a request: %v", err)
 		return
 	}
+	req.Close = true
 
 	resp, err := c.Do(req)
 	if err != nil {
@@ -170,11 +170,12 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 	req, err := http.NewRequest(method, sendURL, &buf)
 	req.Header.Add("Content-Type", "application/json")
 	// req.Header.Add("Content-Length", "0")
-
 	if err != nil {
 		log.Printf("failed to create a request: %v", err)
 		return
 	}
+	req.Close = true
+
 	resp, err := c.Do(req)
 	if err != nil {
 		log.Printf("failed to do a request: %v", err)
