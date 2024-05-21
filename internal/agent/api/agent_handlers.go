@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -88,6 +89,7 @@ func sendData(method, sendURL string) {
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
 
 	req, err := http.NewRequest(method, sendURL, http.NoBody)
+
 	req.Header.Add("Content-Type", "text/plain")
 	req.Header.Add("Content-Length", "0")
 	if err != nil {
@@ -168,6 +170,9 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
 
 	req, err := http.NewRequest(method, sendURL, &buf)
+
+	fmt.Println("Buffer: ", &buf)
+
 	req.Header.Add("Content-Type", "application/json")
 	// req.Header.Add("Content-Length", "0")
 	if err != nil {
