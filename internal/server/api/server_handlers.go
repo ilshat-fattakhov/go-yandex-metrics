@@ -111,7 +111,6 @@ func (s *Server) GetHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 				return
 			} else {
 				w.Header().Add(ContentType, applicationJSON)
-				// w.Header().Add("Content-Length", "0")
 				w.WriteHeader(http.StatusOK)
 
 				metric := storage.Metrics{ID: m.ID, MType: config.GaugeType, Value: &mValue}
@@ -130,7 +129,6 @@ func (s *Server) GetHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 				return
 			} else {
 				w.Header().Add(ContentType, applicationJSON)
-				// w.Header().Add("Content-Length", "0")
 				w.WriteHeader(http.StatusOK)
 
 				metric := storage.Metrics{ID: m.ID, MType: config.CounterType, Delta: &mDelta}
@@ -275,7 +273,6 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 
 			s.Save(mType, mName, mValueFloat, w)
 			w.Header().Add(ContentType, applicationJSON)
-			//w.Header().Add("Content-Length", "49")
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.GaugeType, Value: m.Value}
@@ -284,8 +281,8 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			lg.Info("Sending back gauge value in response body, see next line")
 			mValueTemp = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 			lg.Info(mValueTemp)
-			//////////////////////////////////////////////////////////
-			err := json.NewEncoder(w).Encode(metric) //////////////////////////////////////////
+
+			err := json.NewEncoder(w).Encode(metric)
 			if err != nil {
 				log.Printf("failed to JSON encode metric: %v", err)
 				return
@@ -295,7 +292,6 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			mValueInt = strconv.FormatInt(*m.Delta, 10)
 			s.Save(mType, mName, mValueInt, w)
 			w.Header().Add(ContentType, applicationJSON)
-			//w.Header().Add("Content-Length", "500")
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.CounterType, Delta: m.Delta}

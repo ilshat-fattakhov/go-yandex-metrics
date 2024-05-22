@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+	"unsafe"
 
 	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/logger"
@@ -173,8 +174,9 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 
 	fmt.Println("Buffer: ", &buf)
 
-	req.Header.Add("Content-Type", "application/json")
-	// req.Header.Add("Content-Length", "0")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Length", fmt.Sprint(unsafe.Sizeof(metric)))
+
 	if err != nil {
 		log.Printf("failed to create a request: %v", err)
 		return
