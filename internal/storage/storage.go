@@ -1,5 +1,7 @@
 package storage
 
+import "sync"
+
 type Metrics struct {
 	ID    string   `json:"id"`              // имя метрики
 	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
@@ -10,6 +12,7 @@ type Metrics struct {
 type MemStorage struct {
 	Gauge   map[string]float64
 	Counter map[string]int64
+	MemLock sync.Mutex
 }
 
 func NewMemStorage() *MemStorage {
