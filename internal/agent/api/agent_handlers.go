@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -115,22 +116,36 @@ func sendData(method, sendURL string) {
 	}
 }
 
+func (a *Agent) httpClient() *http.Client {
+	client := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 20,
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	return client
+}
+
 func (a *Agent) SendMetricsJSON(lg *zap.Logger) error {
 	lg.Info("sending metrics in JSON format")
-
+	c := a.httpClient()
 	for n, v := range a.store.Gauge {
-		a.sendDataJSON(v, n, config.GaugeType, http.MethodPost)
+		response := a.sendDataJSON(c, v, n, config.GaugeType, http.MethodPost)
+		log.Println("Response Body:", string(response))
 	}
 
 	for n, v := range a.store.Counter {
-		a.sendDataJSON(v, n, config.CounterType, http.MethodPost)
+		response := a.sendDataJSON(c, v, n, config.CounterType, http.MethodPost)
+		log.Println("Response Body:", string(response))
+
 	}
 
 	a.store.Counter["PollCount"] = 0
 	return nil
 }
 
-func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
+func (a *Agent) sendDataJSON(c *http.Client, v any, n string, mType string, method string) []byte {
 	lg := logger.InitLogger()
 
 	var metric = storage.Metrics{}
@@ -141,14 +156,14 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 		case float64:
 			metric = storage.Metrics{ID: n, MType: config.GaugeType, Value: &i}
 		default:
-			return
+			return nil
 		}
 	case config.CounterType:
 		switch i := v.(type) {
 		case int64:
 			metric = storage.Metrics{ID: n, MType: config.CounterType, Delta: &i}
 		default:
-			return
+			return nil
 		}
 	}
 
@@ -157,18 +172,18 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 
 	if err != nil {
 		log.Printf("failed to JSON encode gauge metric: %v", err)
-		return
+		return nil
 	}
 
 	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
 	if err != nil {
 		log.Printf("failed to join path parts for gauge JSON POST URL: %v", err)
-		return
+		return nil
 	}
 
 	lg.Info("Sending data to URL: " + sendURL)
 
-	c := http.Client{Timeout: time.Duration(1) * time.Second}
+	//c := http.Client{Timeout: time.Duration(1) * time.Second}
 
 	req, err := http.NewRequest(method, sendURL, &buf)
 
@@ -179,23 +194,29 @@ func (a *Agent) sendDataJSON(v any, n string, mType string, method string) {
 
 	if err != nil {
 		log.Printf("failed to create a request: %v", err)
-		return
+		return nil
 	}
-	req.Close = true
+	//req.Close = true
 
 	resp, err := c.Do(req)
 	if err != nil {
 		log.Printf("failed to do a request: %v", err)
 		log.Printf("received response: %v", resp)
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Printf("failed to close response body: %v", err)
-			return
-		}
-	}()
+	defer resp.Body.Close()
+	//defer func() {
+	//	if err := resp.Body.Close(); err != nil {
+	//		log.Printf("failed to close response body: %v", err)
+	//		return
+	//	}
+	//}()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Couldn't parse response body. %+v", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("unexpected response code while sending metrics: %v", resp.StatusCode)
-		return
+		return nil
 	}
+	return body
 }
