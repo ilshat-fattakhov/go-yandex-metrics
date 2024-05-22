@@ -200,6 +200,7 @@ func (a *Agent) sendDataJSON(c *http.Client, v any, n string, mType string, meth
 
 	resp, err := c.Do(req)
 	if err != nil {
+		lg.Info("Response status code: " + strconv.Itoa(resp.StatusCode))
 		log.Printf("failed to do a request: %v", err)
 		log.Printf("received response: %v", resp)
 	}
