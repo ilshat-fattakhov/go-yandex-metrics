@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
-	"time"
+	"unsafe"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
@@ -61,28 +61,6 @@ func getAllMetrics(s *Server) string {
 
 func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			panic(err)
-		}
-		t1 := time.Now()
-		defer func() {
-			lg.Info("Request info",
-				zap.String("URI", r.RequestURI),
-				zap.String("method", r.Method),
-				zap.String("body", string(body)),
-				zap.Duration("time", time.Since(t1)),
-			)
-		}()
-		defer func() {
-			lg.Info("Response info",
-				zap.Int("status", ww.Status()),
-				zap.Int("size", ww.BytesWritten()),
-			)
-		}()
-
 		mType := chi.URLParam(r, "mtype")
 		mName := chi.URLParam(r, "mname")
 		mValue, err := s.getSingleMetric(mType, mName)
@@ -111,27 +89,10 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 func (s *Server) GetHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(err)
 		}
-		t1 := time.Now()
-		defer func() {
-			lg.Info("Request info",
-				zap.String("URI", r.RequestURI),
-				zap.String("method", r.Method),
-				zap.String("body", string(body)),
-				zap.Duration("time", time.Since(t1)),
-			)
-		}()
-		defer func() {
-			lg.Info("Response info",
-				zap.Int("status", ww.Status()),
-				zap.Int("size", ww.BytesWritten()),
-			)
-		}()
 
 		var m storage.Metrics
 
@@ -212,21 +173,23 @@ func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 	}
 }
 
-func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
 
-	mType := chi.URLParam(r, "mtype")
-	mName := chi.URLParam(r, "mname")
-	mValue := chi.URLParam(r, "mvalue")
+		mType := chi.URLParam(r, "mtype")
+		mName := chi.URLParam(r, "mname")
+		mValue := chi.URLParam(r, "mvalue")
 
-	if mType == config.GaugeType || mType == config.CounterType {
-		s.Save(mType, mName, mValue, w)
-		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
+		if mType == config.GaugeType || mType == config.CounterType {
+			s.Save(mType, mName, mValue, w)
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
 	}
 }
 
@@ -275,31 +238,9 @@ func (s *Server) saveGauge(mName, mValue string, w http.ResponseWriter) {
 
 func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(err)
-		}
-		t1 := time.Now()
-		defer func() {
-			lg.Info("Request info",
-				zap.String("URI", r.RequestURI),
-				zap.String("method", r.Method),
-				zap.String("body", string(body)),
-				zap.Duration("time", time.Since(t1)),
-			)
-		}()
-		defer func() {
-			lg.Info("Response info",
-				zap.Int("status", ww.Status()),
-				zap.Int("size", ww.BytesWritten()),
-			)
-		}()
-
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
 		}
 
 		var m storage.Metrics
@@ -327,16 +268,17 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 
 			s.Save(mType, mName, mValueFloat, w)
 			w.Header().Add(ContentType, applicationJSON)
-			// w.Header().Add("Content-Length", "0")
+			//w.Header().Add("Content-Length", "49")
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.GaugeType, Value: m.Value}
+			w.Header().Set("Content-Length", fmt.Sprint(unsafe.Sizeof(metric)))
 
 			lg.Info("Sending back gauge value in response body, see next line")
 			mValueTemp = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 			lg.Info(mValueTemp)
-
-			err := json.NewEncoder(w).Encode(metric)
+			//////////////////////////////////////////////////////////
+			err := json.NewEncoder(w).Encode(metric) //////////////////////////////////////////
 			if err != nil {
 				log.Printf("failed to JSON encode metric: %v", err)
 				return
@@ -346,10 +288,12 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			mValueInt = strconv.FormatInt(*m.Delta, 10)
 			s.Save(mType, mName, mValueInt, w)
 			w.Header().Add(ContentType, applicationJSON)
-			// w.Header().Add("Content-Length", "0")
+			//w.Header().Add("Content-Length", "500")
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.CounterType, Delta: m.Delta}
+			w.Header().Set("Content-Length", fmt.Sprint(unsafe.Sizeof(metric)))
+
 			err := json.NewEncoder(w).Encode(metric)
 			if err != nil {
 				log.Printf("failed to JSON encode metric: %v", err)
