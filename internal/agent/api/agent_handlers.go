@@ -15,7 +15,6 @@ import (
 	"unsafe"
 
 	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/logger"
 	"go-yandex-metrics/internal/storage"
 
 	"go.uber.org/zap"
@@ -69,7 +68,7 @@ func (a *Agent) SendMetrics(lg *zap.Logger) error {
 			log.Printf("failed to join path parts for gauge POST URL: %v", err)
 			return nil
 		}
-		lg.Info("Sending metrics to server")
+		a.logger.Info("Sending metrics to server")
 		sendData(http.MethodPost, sendURL)
 	}
 
@@ -116,38 +115,27 @@ func sendData(method, sendURL string) {
 	}
 }
 
-func (a *Agent) httpClient() *http.Client {
-	client := &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConnsPerHost: 20,
-		},
-		Timeout: 10 * time.Second,
-	}
-
-	return client
-}
-
 func (a *Agent) SendMetricsJSON(lg *zap.Logger) error {
-	lg.Info("sending metrics in JSON format")
-	c := a.httpClient()
+	a.logger.Info("sending metrics in JSON format")
+	c := http.Client{Timeout: time.Duration(1) * time.Second}
+
 	for n, v := range a.store.Gauge {
-		response := a.sendDataJSON(c, v, n, config.GaugeType, http.MethodPost)
-		log.Println("Response Body:", string(response))
+		a.sendDataJSON(c, v, n, config.GaugeType, http.MethodPost)
+		// response := a.sendDataJSON(c, v, n, config.GaugeType, http.MethodPost)
+		// a.logger.Info("Response Body:" + string(response))
 	}
 
 	for n, v := range a.store.Counter {
-		response := a.sendDataJSON(c, v, n, config.CounterType, http.MethodPost)
-		log.Println("Response Body:", string(response))
-
+		a.sendDataJSON(c, v, n, config.CounterType, http.MethodPost)
+		// response := a.sendDataJSON(c, v, n, config.CounterType, http.MethodPost)
+		// a.logger.Info("Response Body:" + string(response))
 	}
 
 	a.store.Counter["PollCount"] = 0
 	return nil
 }
 
-func (a *Agent) sendDataJSON(c *http.Client, v any, n string, mType string, method string) []byte {
-	lg := logger.InitLogger()
-
+func (a *Agent) sendDataJSON(c http.Client, v any, n string, mType string, method string) {
 	var metric = storage.Metrics{}
 
 	switch mType {
@@ -156,68 +144,50 @@ func (a *Agent) sendDataJSON(c *http.Client, v any, n string, mType string, meth
 		case float64:
 			metric = storage.Metrics{ID: n, MType: config.GaugeType, Value: &i}
 		default:
-			return nil
+			return
 		}
 	case config.CounterType:
 		switch i := v.(type) {
 		case int64:
 			metric = storage.Metrics{ID: n, MType: config.CounterType, Delta: &i}
 		default:
-			return nil
+			return
 		}
 	}
+	// c := http.Client{Timeout: time.Duration(180) * time.Second}
 
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(metric)
 
 	if err != nil {
 		log.Printf("failed to JSON encode gauge metric: %v", err)
-		return nil
+		return
 	}
 
 	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
 	if err != nil {
 		log.Printf("failed to join path parts for gauge JSON POST URL: %v", err)
-		return nil
+		return
 	}
 
-	lg.Info("Sending data to URL: " + sendURL)
-
-	//c := http.Client{Timeout: time.Duration(1) * time.Second}
-
 	req, err := http.NewRequest(method, sendURL, &buf)
-
-	fmt.Println("Buffer: ", &buf)
+	if err != nil {
+		log.Printf("failed to create a request: %v", err)
+		a.logger.Info("Failed to create a request")
+		return
+	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Length", fmt.Sprint(unsafe.Sizeof(metric)))
-
-	if err != nil {
-		log.Printf("failed to create a request: %v", err)
-		return nil
-	}
-	//req.Close = true
-
 	resp, err := c.Do(req)
+
+	// reuse tcp connection
+	if resp != nil {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+
 	if err != nil {
-		lg.Info("Response status code: " + strconv.Itoa(resp.StatusCode))
 		log.Printf("failed to do a request: %v", err)
-		log.Printf("received response: %v", resp)
 	}
-	defer resp.Body.Close()
-	//defer func() {
-	//	if err := resp.Body.Close(); err != nil {
-	//		log.Printf("failed to close response body: %v", err)
-	//		return
-	//	}
-	//}()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("Couldn't parse response body. %+v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("unexpected response code while sending metrics: %v", resp.StatusCode)
-		return nil
-	}
-	return body
 }

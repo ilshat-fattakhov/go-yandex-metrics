@@ -7,6 +7,8 @@ import (
 	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/logger"
 	"go-yandex-metrics/internal/storage"
+
+	"go.uber.org/zap"
 )
 
 type AgentCfg struct {
@@ -16,20 +18,24 @@ type AgentCfg struct {
 }
 
 type Agent struct {
-	store *storage.MemStorage
-	cfg   config.AgentCfg
+	logger *zap.Logger
+	store  *storage.MemStorage
+	cfg    config.AgentCfg
 }
 
 func NewAgent(cfg config.AgentCfg, store *storage.MemStorage) *Agent {
+	lg := logger.InitLogger("agent.log")
+
 	agt := &Agent{
-		cfg:   cfg,
-		store: store,
+		cfg:    cfg,
+		store:  store,
+		logger: lg,
 	}
 	return agt
 }
 
 func (a *Agent) Start() error {
-	lg := logger.InitLogger()
+	lg := a.logger
 
 	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
 	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)

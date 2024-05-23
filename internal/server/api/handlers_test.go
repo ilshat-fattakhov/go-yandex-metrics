@@ -71,9 +71,9 @@ func TestServer_UpdateHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			//r := httptest.NewRequest(tt.method, tt.url, http.NoBody)
-			//w := httptest.NewRecorder()
-			//tt.s.UpdateHandler(w, r)
+			// r := httptest.NewRequest(tt.method, tt.url, http.NoBody)
+			// w := httptest.NewRecorder()
+			// tt.s.UpdateHandler(w, r)
 		})
 	}
 }

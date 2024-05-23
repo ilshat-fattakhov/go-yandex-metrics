@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/logger"
@@ -19,14 +20,17 @@ type ServerCfg struct {
 }
 
 type Server struct {
+	logger *zap.Logger
+	router *chi.Mux
 	tpl    *template.Template
 	store  *storage.MemStorage
-	router *chi.Mux
 	cfg    config.ServerCfg
 }
 
 func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error) {
 	tpl, err := createTemplate()
+	lg := logger.InitLogger("server.log")
+
 	if err != nil {
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
@@ -35,6 +39,7 @@ func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error)
 		router: chi.NewRouter(),
 		cfg:    cfg,
 		tpl:    tpl,
+		logger: lg,
 	}
 	srv.routes()
 	return srv, nil
@@ -55,7 +60,7 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) routes() {
-	lg := logger.InitLogger()
+	lg := s.logger
 
 	s.router.Route("/", func(r chi.Router) {
 		r.Use(logger.Logger(lg))
