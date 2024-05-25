@@ -115,27 +115,23 @@ func sendData(method, sendURL string) {
 	}
 }
 
-func (a *Agent) SendMetricsJSON(lg *zap.Logger) error {
+func (a *Agent) SendMetricsJSONgzip(lg *zap.Logger) error {
 	a.logger.Info("sending metrics in JSON format")
 	c := http.Client{Timeout: time.Duration(1) * time.Second}
 
 	for n, v := range a.store.Gauge {
-		a.sendDataJSON(c, v, n, config.GaugeType, http.MethodPost)
-		// response := a.sendDataJSON(c, v, n, config.GaugeType, http.MethodPost)
-		// a.logger.Info("Response Body:" + string(response))
+		a.sendDataJSONgzip(c, v, n, config.GaugeType, http.MethodPost)
 	}
 
 	for n, v := range a.store.Counter {
-		a.sendDataJSON(c, v, n, config.CounterType, http.MethodPost)
-		// response := a.sendDataJSON(c, v, n, config.CounterType, http.MethodPost)
-		// a.logger.Info("Response Body:" + string(response))
+		a.sendDataJSONgzip(c, v, n, config.CounterType, http.MethodPost)
 	}
 
 	a.store.Counter["PollCount"] = 0
 	return nil
 }
 
-func (a *Agent) sendDataJSON(c http.Client, v any, n string, mType string, method string) {
+func (a *Agent) sendDataJSONgzip(c http.Client, v any, n string, mType string, method string) {
 	var metric = storage.Metrics{}
 
 	switch mType {

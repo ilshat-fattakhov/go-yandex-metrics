@@ -50,7 +50,8 @@ func (a *Agent) Start() error {
 				return nil
 			}
 		case <-tickerSend.C:
-			err := a.SendMetricsJSON(lg)
+			err := a.SendMetricsJSONgzip(lg)
+			// err := a.SendMetricsJSON(lg)
 			if err != nil {
 				lg.Error("Failed to send metrics")
 				log.Printf("failed to send metrics: %v", err)

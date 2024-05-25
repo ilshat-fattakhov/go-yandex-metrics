@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+
 	"errors"
 	"fmt"
 	"io"
@@ -40,6 +41,7 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	html := doc.String()
+
 	_, err = w.Write([]byte(html))
 	if err != nil {
 		log.Printf("an error occured writing to browser: %v", err)
@@ -78,7 +80,9 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 		w.Header().Set(ContentType, "text/html")
 		w.Header().Set("charset", "utf-8")
 		w.WriteHeader(http.StatusOK)
+
 		html := doc.String()
+
 		_, err = w.Write([]byte(html))
 		if err != nil {
 			log.Printf("an error occured writing to browser: %v", err)

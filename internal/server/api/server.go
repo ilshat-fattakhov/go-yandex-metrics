@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
+	"go-yandex-metrics/internal/gzip"
 	"go-yandex-metrics/internal/logger"
 	"go-yandex-metrics/internal/storage"
 )
@@ -64,11 +65,16 @@ func (s *Server) routes() {
 
 	s.router.Route("/", func(r chi.Router) {
 		r.Use(logger.Logger(lg))
-		r.Get("/", s.IndexHandler)
+		// r.Use(gzip.GzipHandle())
+		// r.Use(gzip.GzipMiddleware())
+
+		// r.Get("/", s.IndexHandler)
 		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
-		r.Post("/value/", s.GetHandlerJSON(lg))
-		r.Post("/update/", s.UpdateHandlerJSON(lg))
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler(lg))
+
+		r.Get("/", gzip.GzipMiddleware(s.IndexHandler))
+		r.Post("/value/", gzip.GzipMiddleware(s.GetHandlerJSON(lg)))
+		r.Post("/update/", gzip.GzipMiddleware(s.UpdateHandlerJSON(lg)))
 	})
 }
 
