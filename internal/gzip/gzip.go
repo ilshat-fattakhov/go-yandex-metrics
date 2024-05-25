@@ -2,6 +2,7 @@ package gzip
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -55,7 +56,7 @@ type compressReader struct {
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("cannot create newCompressReader")
 	}
 
 	return &compressReader{
@@ -67,14 +68,14 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 func (c compressReader) Read(p []byte) (n int, err error) {
 	bytesRead, err := c.zr.Read(p)
 	if err != nil {
-		log.Printf("cannot write to compressor: %v", err)
+		log.Printf("cannot read from compressReader: %v", err)
 	}
 	return bytesRead, nil
 }
 
 func (c *compressReader) Close() error {
 	if err := c.r.Close(); err != nil {
-		return err
+		return errors.New("cannot create newCompressReader")
 	}
 	return nil
 }
