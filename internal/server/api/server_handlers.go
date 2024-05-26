@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 const (
 	ContentType     = "Content-Type"
 	applicationJSON = "application/json"
+	oSuserRw        = 0o600
 )
 
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +99,8 @@ func (s *Server) GetHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			panic(err)
 		}
 
+		w.Header().Set(ContentType, applicationJSON)
+
 		var m storage.Metrics
 
 		err = json.Unmarshal(body, &m)
@@ -117,7 +121,6 @@ func (s *Server) GetHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 				return
 			}
 
-			w.Header().Add(ContentType, applicationJSON)
 			w.WriteHeader(http.StatusOK)
 
 			var metric = storage.Metrics{}
@@ -248,6 +251,8 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			panic(err)
 		}
 
+		w.Header().Set(ContentType, applicationJSON)
+
 		var m storage.Metrics
 
 		lg.Info("Decoding JSON request")
@@ -272,7 +277,6 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			lg.Info(mValueFloat)
 
 			s.Save(mType, mName, mValueFloat, w)
-			w.Header().Add(ContentType, applicationJSON)
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.GaugeType, Value: m.Value}
@@ -290,11 +294,10 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 				log.Printf("failed to JSON encode metric: %v", err)
 				return
 			}
-			return
+
 		case config.CounterType:
 			mValueInt = strconv.FormatInt(*m.Delta, 10)
 			s.Save(mType, mName, mValueInt, w)
-			w.Header().Add(ContentType, applicationJSON)
 			w.WriteHeader(http.StatusOK)
 
 			metric := storage.Metrics{ID: mName, MType: config.CounterType, Delta: m.Delta}
@@ -305,11 +308,47 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 				log.Printf("failed to JSON encode metric: %v", err)
 				return
 			}
-			return
+
 		default:
 			lg.Info("Wrong metric type - neither gauge nor counter")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		if s.cfg.StoreInterval == 0 {
+			err := s.StoreMetrics()
+			if err != nil {
+				s.logger.Error("Failed to store metrics")
+				log.Printf("failed to store metrics: %v", err)
+				return
+			}
+		}
 	}
+}
+
+func (s *Server) StoreMetrics() error {
+	// сериализуем структуру в JSON формат
+	data, err := json.MarshalIndent(s.store, "", "   ")
+	if err != nil {
+		s.logger.Info("Cannot marshal storage")
+	}
+	// сохраняем данные в файл
+	err = os.WriteFile(s.cfg.FileStoragePath, data, oSuserRw)
+	if err != nil {
+		s.logger.Info("Cannot save storage to file")
+	}
+	return nil
+}
+
+func (s *Server) LoadMetrics() error {
+	data, err := os.ReadFile(s.cfg.FileStoragePath)
+	fmt.Println("Data:", data)
+	if err != nil {
+		s.logger.Info("Cannot read storage file")
+	}
+	st := new(storage.MemStorage)
+	if err := json.Unmarshal(data, &st); err != nil {
+		s.logger.Info("Cannot unmarshal storage file")
+	}
+	fmt.Println("Store:", st)
+	return nil
 }

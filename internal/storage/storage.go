@@ -10,9 +10,9 @@ type Metrics struct {
 }
 
 type MemStorage struct {
-	Gauge   map[string]float64
-	Counter map[string]int64
-	MemLock sync.Mutex
+	Gauge   map[string]float64 `json:"gauge"`
+	Counter map[string]int64   `json:"counter"`
+	MemLock sync.Mutex         `json:"memlock"`
 }
 
 func NewMemStorage() *MemStorage {

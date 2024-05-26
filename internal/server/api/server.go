@@ -1,11 +1,15 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"text/template"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -17,7 +21,10 @@ import (
 )
 
 type ServerCfg struct {
-	Host string
+	Host            string `json:"host"`
+	FileStoragePath string `json:"file_storage_path"`
+	StoreInterval   uint64 `json:"store_interval"`
+	Restore         bool   `json:"restore"`
 }
 
 type Server struct {
@@ -35,6 +42,7 @@ func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error)
 	if err != nil {
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
+
 	srv := &Server{
 		store:  store,
 		router: chi.NewRouter(),
@@ -43,21 +51,56 @@ func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error)
 		logger: lg,
 	}
 	srv.routes()
+	fmt.Println(cfg)
+
+	if cfg.Restore {
+		fmt.Println("Loading metrics from file")
+		err := LoadMetrics(srv)
+		if err != nil {
+			lg.Info("Failed to load metrics")
+		}
+	}
+
 	return srv, nil
 }
 
 func (s *Server) Start() error {
+	fmt.Println(s.cfg)
+	s.logger.Info("Storage path: " + s.cfg.FileStoragePath)
+	s.logger.Info("Restore on start: " + strconv.FormatBool(s.cfg.Restore))
+	s.logger.Info("Store interval: " + strconv.FormatUint(s.cfg.StoreInterval, 10))
+
 	server := http.Server{
 		Addr:    s.cfg.Host,
 		Handler: s.router,
 	}
+	if s.cfg.StoreInterval != 0 {
+		go runStore(s)
+	}
+
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			log.Printf("HTTP server has encountered an error %v", err)
 			return nil
 		}
 	}
+
 	return nil
+}
+func runStore(s *Server) {
+	fmt.Println(s.cfg)
+
+	if s.cfg.FileStoragePath != "" {
+		tickerStore := time.NewTicker(time.Duration(s.cfg.StoreInterval) * time.Second)
+		for range tickerStore.C {
+			err := s.StoreMetrics()
+			if err != nil {
+				s.logger.Error("Failed to store metrics")
+				log.Printf("failed to store metrics: %v", err)
+				return
+			}
+		}
+	}
 }
 
 func (s *Server) routes() {
@@ -67,8 +110,8 @@ func (s *Server) routes() {
 		r.Use(logger.Logger(lg))
 		// r.Use(gzip.GzipHandle())
 		// r.Use(gzip.GzipMiddleware())
-
 		// r.Get("/", s.IndexHandler)
+
 		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler(lg))
 
@@ -85,4 +128,23 @@ func createTemplate() (*template.Template, error) {
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 	return t, nil
+}
+
+func LoadMetrics(s *Server) error {
+	fmt.Println(s.cfg.FileStoragePath)
+	data, err := os.ReadFile(s.cfg.FileStoragePath)
+	fmt.Println("Data:", data)
+	if err != nil {
+		s.logger.Info("Cannot read storage file")
+	}
+	st := new(storage.MemStorage)
+	if err := json.Unmarshal(data, st); err != nil {
+		s.logger.Info("Cannot unmarshal storage file")
+	}
+	s.store = st
+
+	fmt.Println("Unmarshalled:", st)
+	fmt.Println("Loaded:", s.store)
+
+	return nil
 }
