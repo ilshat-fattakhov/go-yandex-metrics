@@ -51,10 +51,8 @@ func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error)
 		logger: lg,
 	}
 	srv.routes()
-	fmt.Println(cfg)
 
 	if cfg.Restore {
-		fmt.Println("Loading metrics from file")
 		err := LoadMetrics(srv)
 		if err != nil {
 			lg.Info("Failed to load metrics")
@@ -65,7 +63,6 @@ func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error)
 }
 
 func (s *Server) Start() error {
-	fmt.Println(s.cfg)
 	s.logger.Info("Storage path: " + s.cfg.FileStoragePath)
 	s.logger.Info("Restore on start: " + strconv.FormatBool(s.cfg.Restore))
 	s.logger.Info("Store interval: " + strconv.FormatUint(s.cfg.StoreInterval, 10))
@@ -73,9 +70,6 @@ func (s *Server) Start() error {
 	server := http.Server{
 		Addr:    s.cfg.Host,
 		Handler: s.router,
-	}
-	if s.cfg.StoreInterval != 0 {
-		go runStore(s)
 	}
 
 	if err := server.ListenAndServe(); err != nil {
@@ -88,8 +82,6 @@ func (s *Server) Start() error {
 	return nil
 }
 func runStore(s *Server) {
-	fmt.Println(s.cfg)
-
 	if s.cfg.FileStoragePath != "" {
 		tickerStore := time.NewTicker(time.Duration(s.cfg.StoreInterval) * time.Second)
 		for range tickerStore.C {
@@ -131,19 +123,15 @@ func createTemplate() (*template.Template, error) {
 }
 
 func LoadMetrics(s *Server) error {
-	fmt.Println(s.cfg.FileStoragePath)
 	data, err := os.ReadFile(s.cfg.FileStoragePath)
-	fmt.Println("Data:", data)
 	if err != nil {
 		s.logger.Info("Cannot read storage file")
 	}
-	st := new(storage.MemStorage)
-	if err := json.Unmarshal(data, st); err != nil {
+	//st := new(storage.MemStorage)
+	if err := json.Unmarshal(data, s.store); err != nil {
 		s.logger.Info("Cannot unmarshal storage file")
 	}
-	s.store = st
-
-	fmt.Println("Unmarshalled:", st)
+	//s.store = st
 	fmt.Println("Loaded:", s.store)
 
 	return nil

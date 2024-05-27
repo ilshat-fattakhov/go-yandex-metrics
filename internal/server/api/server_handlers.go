@@ -314,14 +314,14 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if s.cfg.StoreInterval == 0 {
-			err := s.StoreMetrics()
-			if err != nil {
-				s.logger.Error("Failed to store metrics")
-				log.Printf("failed to store metrics: %v", err)
-				return
-			}
+		//f s.cfg.StoreInterval == 0 || 1 == 1 {
+		err = s.StoreMetrics()
+		if err != nil {
+			s.logger.Error("Failed to store metrics")
+			log.Printf("failed to store metrics: %v", err)
+			return
 		}
+		//}
 	}
 }
 
@@ -336,19 +336,5 @@ func (s *Server) StoreMetrics() error {
 	if err != nil {
 		s.logger.Info("Cannot save storage to file")
 	}
-	return nil
-}
-
-func (s *Server) LoadMetrics() error {
-	data, err := os.ReadFile(s.cfg.FileStoragePath)
-	fmt.Println("Data:", data)
-	if err != nil {
-		s.logger.Info("Cannot read storage file")
-	}
-	st := new(storage.MemStorage)
-	if err := json.Unmarshal(data, &st); err != nil {
-		s.logger.Info("Cannot unmarshal storage file")
-	}
-	fmt.Println("Store:", st)
 	return nil
 }
