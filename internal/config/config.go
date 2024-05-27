@@ -30,8 +30,8 @@ func NewServerConfig() (ServerCfg, error) {
 	var cfg ServerCfg
 
 	const defaultRunAddr = "localhost:8080"
-	const defaultStoreInterval uint64 = 300                // значение 0 делает запись синхронной
-	const defaultFileStoragePath = "/temp/metrics-db.json" // пустое значение отключает функцию записи на диск
+	const defaultStoreInterval uint64 = 300               // значение 0 делает запись синхронной
+	const defaultFileStoragePath = "/tmp/metrics-db.json" // пустое значение отключает функцию записи на диск
 	const defaultRestore = true
 
 	var flagRunAddr string

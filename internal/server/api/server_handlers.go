@@ -314,14 +314,12 @@ func (s *Server) UpdateHandlerJSON(lg *zap.Logger) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		//f s.cfg.StoreInterval == 0 || 1 == 1 {
 		err = s.StoreMetrics()
 		if err != nil {
 			s.logger.Error("Failed to store metrics")
 			log.Printf("failed to store metrics: %v", err)
 			return
 		}
-		//}
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"text/template"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -81,19 +80,6 @@ func (s *Server) Start() error {
 
 	return nil
 }
-func runStore(s *Server) {
-	if s.cfg.FileStoragePath != "" {
-		tickerStore := time.NewTicker(time.Duration(s.cfg.StoreInterval) * time.Second)
-		for range tickerStore.C {
-			err := s.StoreMetrics()
-			if err != nil {
-				s.logger.Error("Failed to store metrics")
-				log.Printf("failed to store metrics: %v", err)
-				return
-			}
-		}
-	}
-}
 
 func (s *Server) routes() {
 	lg := s.logger
@@ -127,12 +113,8 @@ func LoadMetrics(s *Server) error {
 	if err != nil {
 		s.logger.Info("Cannot read storage file")
 	}
-	//st := new(storage.MemStorage)
 	if err := json.Unmarshal(data, s.store); err != nil {
 		s.logger.Info("Cannot unmarshal storage file")
 	}
-	//s.store = st
-	fmt.Println("Loaded:", s.store)
-
 	return nil
 }
