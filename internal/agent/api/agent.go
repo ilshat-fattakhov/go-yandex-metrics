@@ -1,11 +1,11 @@
 package api
 
 import (
-	"log"
+	"fmt"
 	"time"
 
+	logger "go-yandex-metrics/cmd/server/middleware"
 	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/logger"
 	"go-yandex-metrics/internal/storage"
 
 	"go.uber.org/zap"
@@ -19,12 +19,12 @@ type AgentCfg struct {
 
 type Agent struct {
 	logger *zap.Logger
-	store  *storage.MemStorage
+	store  *storage.FileStorage
 	cfg    config.AgentCfg
 }
 
-func NewAgent(cfg config.AgentCfg, store *storage.MemStorage) *Agent {
-	lg := logger.InitLogger("agent.log")
+func NewAgent(cfg config.AgentCfg, store *storage.FileStorage) *Agent {
+	lg := logger.InitLogger()
 
 	agt := &Agent{
 		cfg:    cfg,
@@ -45,15 +45,13 @@ func (a *Agent) Start() error {
 		case <-tickerSave.C:
 			err := a.SaveMetrics(lg)
 			if err != nil {
-				lg.Error("Failed to save metrics")
-				log.Printf("failed to save metrics: %v", err)
+				lg.Info(fmt.Sprintf("failed to save metrics: %v", err))
 				return nil
 			}
 		case <-tickerSend.C:
-			err := a.SendMetricsJSONgzip(lg)
+			err := a.SendMetrics(lg)
 			if err != nil {
-				lg.Error("Failed to send metrics")
-				log.Printf("failed to send metrics: %v", err)
+				lg.Info(fmt.Sprintf("failed to send metric: %v", err))
 				return nil
 			}
 		}

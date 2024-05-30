@@ -14,7 +14,7 @@ func main() {
 		log.Fatalf("failed to create config: %v", err)
 	}
 
-	store := storage.NewMemStorage()
+	store := storage.NewFileStorage()
 	agent := api.NewAgent(cfg, store)
 
 	err = agent.Start()

@@ -3,7 +3,6 @@ package config
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 )
@@ -14,10 +13,9 @@ const (
 )
 
 type ServerCfg struct {
-	Host            string `json:"host"`
-	FileStoragePath string `json:"file_storage_path"`
-	StoreInterval   uint64 `json:"store_interval"`
-	Restore         bool   `json:"restore"`
+	Host          string `json:"host"`
+	StoreInterval uint64 `json:"store_interval"`
+	Restore       bool   `json:"restore"`
 }
 
 type AgentCfg struct {
@@ -26,8 +24,13 @@ type AgentCfg struct {
 	ReportInterval uint64 `json:"report_interval"`
 }
 
-func NewServerConfig() (ServerCfg, error) {
+type StorageCfg struct {
+	FileStoragePath string `json:"file_storage_path"`
+}
+
+func NewServerConfig() (ServerCfg, StorageCfg, error) {
 	var cfg ServerCfg
+	var storageCfg StorageCfg
 
 	const defaultRunAddr = "localhost:8080"
 	const defaultStoreInterval uint64 = 300               // значение 0 делает запись синхронной
@@ -57,15 +60,15 @@ func NewServerConfig() (ServerCfg, error) {
 	if ok {
 		tmpStoreInterval, err := strconv.ParseUint(envStoreInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
+			return cfg, storageCfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
 		}
 		cfg.StoreInterval = tmpStoreInterval
 	}
 
-	cfg.FileStoragePath = flagFileStoragePath
+	storageCfg.FileStoragePath = flagFileStoragePath
 	envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH")
 	if ok {
-		cfg.FileStoragePath = envFileStoragePath
+		storageCfg.FileStoragePath = envFileStoragePath
 	}
 
 	cfg.Restore = flagRestore
@@ -73,12 +76,12 @@ func NewServerConfig() (ServerCfg, error) {
 	if ok {
 		boolValue, err := strconv.ParseBool(envRestore)
 		if err != nil {
-			log.Fatal(err)
+			return cfg, storageCfg, fmt.Errorf("an error occured parsing bool value: %w", err)
 		}
 		cfg.Restore = boolValue
 	}
 
-	return cfg, nil
+	return cfg, storageCfg, nil
 }
 
 func NewAgentConfig() (AgentCfg, error) {

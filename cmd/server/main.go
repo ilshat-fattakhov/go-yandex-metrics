@@ -9,13 +9,13 @@ import (
 )
 
 func main() {
-	cfg, err := config.NewServerConfig()
+	cfg, storageCfg, err := config.NewServerConfig()
 	if err != nil {
 		log.Fatalf("failed to create config: %v", err)
 	}
 
-	store := storage.NewMemStorage()
-	server, err := api.NewServer(cfg, store)
+	store := storage.NewFileStorage()
+	server, err := api.NewServer(cfg, storageCfg, store)
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
 	}
