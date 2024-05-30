@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"text/template"
 
 	"github.com/go-chi/chi/v5"
@@ -32,10 +31,11 @@ type Server struct {
 }
 
 func NewServer(cfg config.ServerCfg, storageCfg config.StorageCfg, store *storage.FileStorage) (*Server, error) {
-	tpl, err := createTemplate()
 	lg := logger.InitLogger()
 
+	tpl, err := createTemplate()
 	if err != nil {
+		lg.Info("got error parsing metrics template")
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 
@@ -49,28 +49,27 @@ func NewServer(cfg config.ServerCfg, storageCfg config.StorageCfg, store *storag
 	}
 
 	if cfg.Restore {
-		store, err = store.Load(storageCfg.FileStoragePath)
+		lg.Info("loading metrics from file")
 
+		store, err = store.Load(storageCfg.FileStoragePath)
 		if err != nil {
+			lg.Info("got error loading metrics from file: " + storageCfg.FileStoragePath)
 			lg.Fatal("Failed to load metrics from file", zap.Error(err))
 		}
 		srv.store = store
 	}
+	lg.Info("loading routes")
 	srv.routes()
 
 	return srv, nil
 }
 
 func (s *Server) Start() error {
-	s.logger.Info("Storage path: " + s.storageCfg.FileStoragePath)
-	s.logger.Info("Restore on start: " + strconv.FormatBool(s.cfg.Restore))
-	s.logger.Info("Store interval: " + strconv.FormatUint(s.cfg.StoreInterval, 10))
-
 	server := http.Server{
 		Addr:    s.cfg.Host,
 		Handler: s.router,
 	}
-
+	s.logger.Info("starting server")
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			s.logger.Info(fmt.Sprintf("HTTP server has encountered an error: %v", err))
