@@ -16,12 +16,12 @@ func InitLogger() *zap.Logger {
 	if err != nil {
 		fmt.Printf("Can't initialize zap logger: %v", err)
 	}
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			logger.Info(fmt.Sprintf("failed to sync logger: %v", err))
-			return
-		}
-	}()
+	// defer func() {
+	//	if err := logger.Sync(); err != nil {
+	//		logger.Info(fmt.Sprintf("failed to sync logger: %v", err))
+	//		return
+	//	}
+	// }()
 	return logger
 }
 
