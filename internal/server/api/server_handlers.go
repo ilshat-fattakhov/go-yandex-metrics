@@ -305,7 +305,6 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				return
 			}
 			if s.storageCfg.FileStoragePath != "" {
-
 				err = s.store.Save(s.storageCfg.FileStoragePath)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
