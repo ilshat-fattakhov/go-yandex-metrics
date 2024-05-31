@@ -230,6 +230,7 @@ func (s *Server) saveGauge(mName, mValue string, w http.ResponseWriter) {
 
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		s.logger.Info("r.RequestURI: " + r.RequestURI + "r.Method: " + r.Method)
 		if r.RequestURI == "/update/" && r.Method == http.MethodPost {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -299,10 +300,13 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			err = s.store.Save(s.storageCfg.FileStoragePath)
-			if err != nil {
-				s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
-				return
+			if s.storageCfg.FileStoragePath != "" {
+
+				err = s.store.Save(s.storageCfg.FileStoragePath)
+				if err != nil {
+					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
+					return
+				}
 			}
 		} else {
 			if r.Method != http.MethodPost {

@@ -107,6 +107,7 @@ func (a *Agent) sendData(c http.Client, v any, n string, mType string, method st
 		a.logger.Info(fmt.Sprintf("failed to join path parts for gauge JSON POST URL: %v", err))
 		return
 	}
+	a.logger.Info("sending " + mType + " metrics " + (buf.String()))
 
 	req, err := http.NewRequest(method, sendURL, &buf)
 	if err != nil {
@@ -116,13 +117,12 @@ func (a *Agent) sendData(c http.Client, v any, n string, mType string, method st
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(binary.Size(&buf)))
-	resp, _ := c.Do(req)
-	// resp, err := c.Do(req)
+	resp, err := c.Do(req)
 	// если раскомментировать строки ниже, автотест не проходится
 	// с ошибкой "невозможно установить соединение с сервером"
-	// if err != nil {
-	//	a.logger.Info(fmt.Sprintf("failed to do a request: %v", err))
-	// }
+	if err != nil {
+		a.logger.Info(fmt.Sprintf("failed to do a request: %v", err))
+	}
 
 	if resp != nil {
 		_, _ = io.Copy(io.Discard, resp.Body)

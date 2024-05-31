@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	logger "go-yandex-metrics/cmd/server/middleware"
 	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/server/api"
@@ -18,7 +19,7 @@ func main() {
 		lg.Info("got error creating configuration", zap.Error(err))
 		// log.Fatalf("failed to create config: %v", err)
 	}
-
+	fmt.Println(cfg, storageCfg)
 	store := storage.NewFileStorage()
 	lg.Info("creating server")
 	server, err := api.NewServer(cfg, storageCfg, store)
