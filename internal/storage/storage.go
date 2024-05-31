@@ -67,6 +67,8 @@ func (f *FileStorage) Save(filePath string) error {
 func (f *FileStorage) Load(filePath string) (*FileStorage, error) {
 	lg := logger.InitLogger()
 
+	fmt.Println(f.MemStore)
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		lg.Info("Cannot read storage file")

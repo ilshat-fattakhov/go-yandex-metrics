@@ -54,11 +54,14 @@ func NewServer(cfg config.ServerCfg, storageCfg config.StorageCfg, store *storag
 			store, err = store.Load(storageCfg.FileStoragePath)
 			if err != nil {
 				lg.Info("got error loading metrics from file: " + storageCfg.FileStoragePath)
-				lg.Fatal("Failed to load metrics from file", zap.Error(err))
+				// lg.Fatal("Failed to load metrics from file", zap.Error(err))
+				store = storage.NewFileStorage()
 			}
 			srv.store = store
 		}
 	}
+	fmt.Println("Store: ", store)
+
 	lg.Info("loading routes")
 	srv.routes()
 

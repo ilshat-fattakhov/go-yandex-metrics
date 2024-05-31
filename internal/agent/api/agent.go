@@ -44,6 +44,9 @@ func (a *Agent) Start() error {
 		select {
 		case <-tickerSave.C:
 			err := a.SaveMetrics(lg)
+
+			fmt.Println(a.store.MemStore)
+
 			if err != nil {
 				lg.Info(fmt.Sprintf("failed to save metrics: %v", err))
 				return nil

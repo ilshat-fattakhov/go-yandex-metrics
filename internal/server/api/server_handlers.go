@@ -203,7 +203,8 @@ func (s *Server) saveCounter(mName, mValue string, w http.ResponseWriter) {
 		return
 	}
 	vInt64 := int64(vFloat64)
-
+	fmt.Println("Memstorage for counter:")
+	fmt.Println(s.store.MemStore)
 	s.store.MemStore.MemLock.Lock()
 	s.store.MemStore.Counter[mName] += vInt64
 	s.store.MemStore.MemLock.Unlock()
@@ -221,6 +222,9 @@ func (s *Server) saveGauge(mName, mValue string, w http.ResponseWriter) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	fmt.Println("Memstorage for gauge:")
+	fmt.Println(s.store.MemStore)
+
 	s.store.MemStore.MemLock.Lock()
 	s.store.MemStore.Gauge[mName] = vFloat64
 	s.store.MemStore.MemLock.Unlock()
