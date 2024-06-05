@@ -1,17 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"go-yandex-metrics/internal/agent/api"
 	"go-yandex-metrics/internal/config"
+	logger "go-yandex-metrics/internal/server/middleware"
 	"go-yandex-metrics/internal/storage"
 )
 
 func main() {
+	lg := logger.InitLogger()
+
+	defer func() {
+		if err := lg.Sync(); err != nil {
+			lg.Info(fmt.Sprintf("failed to sync logger: %v", err))
+			return
+		}
+	}()
+
 	cfg, err := config.NewAgentConfig()
 	if err != nil {
-		log.Fatalf("failed to create config: %v", err)
+		log.Panicf("failed to create config: %v", err)
 	}
 
 	store := storage.NewFileStorage()
@@ -19,6 +30,6 @@ func main() {
 
 	err = agent.Start()
 	if err != nil {
-		log.Fatalf("failed to start agent %v", err)
+		log.Panicf("failed to start agent %v", err)
 	}
 }

@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,15 +12,16 @@ import (
 	"strconv"
 	"time"
 
-	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/storage"
-
-	"go.uber.org/zap"
 )
 
-const updatePath = "update"
+const (
+	GaugeType   string = "gauge"
+	CounterType string = "counter"
+	updatePath         = "update"
+)
 
-func (a *Agent) SaveMetrics(lg *zap.Logger) error {
+func (a *Agent) saveMetrics() {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
@@ -54,43 +54,47 @@ func (a *Agent) SaveMetrics(lg *zap.Logger) error {
 	a.store.MemStore.Gauge["TotalAlloc"] = float64(m.TotalAlloc)
 	a.store.MemStore.Gauge["RandomValue"] = rand.Float64()
 	a.store.MemStore.Counter["PollCount"]++
-
-	return nil
 }
 
-func (a *Agent) SendMetrics(lg *zap.Logger) error {
+func (a *Agent) sendMetrics() error {
 	a.logger.Info("sending metrics in JSON format")
-	c := http.Client{Timeout: time.Duration(1) * time.Second}
+	c := &http.Client{Timeout: time.Duration(1) * time.Second}
 
 	for n, v := range a.store.MemStore.Gauge {
-		a.sendData(c, v, n, config.GaugeType, http.MethodPost)
+		err := a.sendData(c, v, n, GaugeType, http.MethodPost)
+		if err != nil {
+			return fmt.Errorf("an error occured sending gauge data: %w", err)
+		}
 	}
 
 	for n, v := range a.store.MemStore.Counter {
-		a.sendData(c, v, n, config.CounterType, http.MethodPost)
+		err := a.sendData(c, v, n, CounterType, http.MethodPost)
+		if err != nil {
+			return fmt.Errorf("an error occured sending counter data: %w", err)
+		}
 	}
 
 	a.store.MemStore.Counter["PollCount"] = 0
 	return nil
 }
 
-func (a *Agent) sendData(c http.Client, v any, n string, mType string, method string) {
+func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method string) error {
 	var metric = storage.Metrics{}
 
 	switch mType {
-	case config.GaugeType:
+	case GaugeType:
 		switch i := v.(type) {
 		case float64:
-			metric = storage.Metrics{ID: n, MType: config.GaugeType, Value: &i}
+			metric = storage.Metrics{ID: n, MType: GaugeType, Value: &i}
 		default:
-			return
+			return nil
 		}
-	case config.CounterType:
+	case CounterType:
 		switch i := v.(type) {
 		case int64:
-			metric = storage.Metrics{ID: n, MType: config.CounterType, Delta: &i}
+			metric = storage.Metrics{ID: n, MType: CounterType, Delta: &i}
 		default:
-			return
+			return nil
 		}
 	}
 
@@ -99,33 +103,36 @@ func (a *Agent) sendData(c http.Client, v any, n string, mType string, method st
 
 	if err != nil {
 		a.logger.Info(fmt.Sprintf("failed to JSON encode gauge metric: %v", err))
-		return
+		return fmt.Errorf("failed to JSON encode gauge metric: %w", err)
 	}
 
 	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
 	if err != nil {
 		a.logger.Info(fmt.Sprintf("failed to join path parts for gauge JSON POST URL: %v", err))
-		return
+		return fmt.Errorf("failed to join path parts for gauge JSON POST URL: %w", err)
 	}
 	a.logger.Info("sending " + mType + " metrics " + (buf.String()))
 
 	req, err := http.NewRequest(method, sendURL, &buf)
 	if err != nil {
 		a.logger.Info(fmt.Sprintf("failed to create a request: %v", err))
-		return
+		return fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Length", strconv.Itoa(binary.Size(&buf)))
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
+	//	req.Header.Set("Content-Length", strconv.Itoa(binary.Size(&buf)))
 	resp, _ := c.Do(req)
 	// если раскомментировать строки ниже, автотест не проходится
 	// с ошибкой "невозможно установить соединение с сервером"
 	// if err != nil {
 	//	a.logger.Info(fmt.Sprintf("failed to do a request: %v", err))
-	//}
+	// return fmt.Errorf("failed to do a request: %w", err)
+	// }
 
-	if resp != nil {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}
+	//	if resp != nil {
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	//	}
+	return nil
 }

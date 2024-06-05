@@ -5,33 +5,44 @@ import (
 	"fmt"
 	"net/http"
 	"text/template"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	logger "go-yandex-metrics/cmd/server/middleware"
 	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/gzip"
 	"go-yandex-metrics/internal/storage"
+	"go-yandex-metrics/internal/gzip"
+	logger "go-yandex-metrics/internal/server/middleware"
 )
 
-type ServerCfg struct {
-	Host          string `json:"host"`
-	StoreInterval uint64 `json:"store_interval"`
-	Restore       bool   `json:"restore"`
-}
-
 type Server struct {
-	router     *chi.Mux
-	tpl        *template.Template
-	logger     *zap.Logger
-	store      *storage.FileStorage
-	storageCfg config.StorageCfg
-	cfg        config.ServerCfg
+	router *chi.Mux
+	tpl    *template.Template
+	logger *zap.Logger
+	store  *storage.Store
+	cfg    config.ServerCfg
 }
 
-func NewServer(cfg config.ServerCfg, storageCfg config.StorageCfg, store *storage.FileStorage) (*Server, error) {
+type ServerCfg struct {
+	Host       string `json:"host"`
+	StorageCfg StorageCfg
+}
+
+type StorageCfg struct {
+	FileStoragePath string
+	StoreInterval   uint64 `json:"store_interval"`
+	Restore         bool   `json:"restore"`
+}
+
+func NewServer(cfg config.ServerCfg) (*Server, error) {
 	lg := logger.InitLogger()
+
+	store, err := storage.NewStore(cfg)
+	if err != nil {
+		lg.Info("got error creating storage")
+		return nil, fmt.Errorf("got error creating storage: %w", err)
+	}
 
 	tpl, err := createTemplate()
 	if err != nil {
@@ -40,39 +51,24 @@ func NewServer(cfg config.ServerCfg, storageCfg config.StorageCfg, store *storag
 	}
 
 	srv := &Server{
-		store:      store,
-		router:     chi.NewRouter(),
-		cfg:        cfg,
-		tpl:        tpl,
-		logger:     lg,
-		storageCfg: storageCfg,
+		router: chi.NewRouter(),
+		tpl:    tpl,
+		logger: lg,
+		store:  store,
+		cfg:    cfg,
 	}
 
-	if cfg.Restore {
-		lg.Info("loading metrics from file")
-		if storageCfg.FileStoragePath != "" {
-			store, err = store.Load(storageCfg.FileStoragePath)
-			if err != nil {
-				lg.Info("got error loading metrics from file: " + storageCfg.FileStoragePath)
-				// lg.Fatal("Failed to load metrics from file", zap.Error(err))
-				store = storage.NewFileStorage()
-			}
-			srv.store = store
-		}
-	}
-	fmt.Println("Store: ", store)
-
-	lg.Info("loading routes")
 	srv.routes()
 
 	return srv, nil
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(cfg config.ServerCfg) error {
 	server := http.Server{
-		Addr:    s.cfg.Host,
+		Addr:    cfg.Host,
 		Handler: s.router,
 	}
+	saveData(s)
 	s.logger.Info("starting server")
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
@@ -107,4 +103,19 @@ func createTemplate() (*template.Template, error) {
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 	return t, nil
+}
+
+func saveData(s *Server) {
+	if s.cfg.StorageCfg.StoreInterval != 0 && s.cfg.StorageCfg.FileStoragePath != "" {
+		go func() {
+			tickerStore := time.NewTicker(time.Duration(s.cfg.StorageCfg.StoreInterval) * time.Second)
+			for range tickerStore.C {
+				err := (*storage.Store).Save(s.store, s.cfg.StorageCfg.FileStoragePath)
+				if err != nil {
+					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
+					return
+				}
+			}
+		}()
+	}
 }

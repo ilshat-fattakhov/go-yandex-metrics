@@ -2,36 +2,41 @@ package main
 
 import (
 	"fmt"
-	logger "go-yandex-metrics/cmd/server/middleware"
-	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/server/api"
-	"go-yandex-metrics/internal/storage"
+	"log"
 
 	"go.uber.org/zap"
+
+	"go-yandex-metrics/internal/config"
+	"go-yandex-metrics/internal/server/api"
+	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 func main() {
 	lg := logger.InitLogger()
+	defer func() {
+		if err := lg.Sync(); err != nil {
+			lg.Info(fmt.Sprintf("failed to sync logger: %v", err))
+			return
+		}
+	}()
 
-	lg.Info("creating configuration")
-	cfg, storageCfg, err := config.NewServerConfig()
+	cfg, err := config.NewServerConfig()
+	lg.Info("server configuration settings" + fmt.Sprint(cfg))
+
 	if err != nil {
 		lg.Info("got error creating configuration", zap.Error(err))
-		// log.Fatalf("failed to create config: %v", err)
-	}
-	fmt.Println(cfg, storageCfg)
-	store := storage.NewFileStorage()
-	lg.Info("creating server")
-	server, err := api.NewServer(cfg, storageCfg, store)
-	if err != nil {
-		lg.Info("got error creating server", zap.Error(err))
-		// log.Fatalf("failed to create server: %v", err)
+		log.Panicf("failed to create config: %v", err)
 	}
 
-	lg.Info("starting server")
-	err = server.Start()
+	server, err := api.NewServer(*cfg)
+	if err != nil {
+		lg.Info("got error creating server", zap.Error(err))
+		log.Panicf("failed to create server: %v", err)
+	}
+
+	err = server.Start(*cfg)
 	if err != nil {
 		lg.Info("got error starting server", zap.Error(err))
-		// log.Fatalf("failed to start server %v", err)
+		log.Panicf("failed to start server %v", err)
 	}
 }

@@ -7,15 +7,15 @@ import (
 	"strconv"
 )
 
-const (
-	GaugeType   string = "gauge"
-	CounterType string = "counter"
-)
-
 type ServerCfg struct {
-	Host          string `json:"host"`
-	StoreInterval uint64 `json:"store_interval"`
-	Restore       bool   `json:"restore"`
+	Host       string `json:"host"`
+	StorageCfg StorageCfg
+}
+
+type StorageCfg struct {
+	FileStoragePath string
+	StoreInterval   uint64 `json:"store_interval"`
+	Restore         bool   `json:"restore"`
 }
 
 type AgentCfg struct {
@@ -24,11 +24,7 @@ type AgentCfg struct {
 	ReportInterval uint64 `json:"report_interval"`
 }
 
-type StorageCfg struct {
-	FileStoragePath string `json:"file_storage_path"`
-}
-
-func NewServerConfig() (ServerCfg, StorageCfg, error) {
+func NewServerConfig() (*ServerCfg, error) {
 	var cfg ServerCfg
 	var storageCfg StorageCfg
 
@@ -54,15 +50,14 @@ func NewServerConfig() (ServerCfg, StorageCfg, error) {
 	if ok {
 		cfg.Host = envRunAddr
 	}
-
-	cfg.StoreInterval = flagStoreInterval
+	storageCfg.StoreInterval = flagStoreInterval
 	envStoreInterval, ok := os.LookupEnv("STORE_INTERVAL")
 	if ok {
 		tmpStoreInterval, err := strconv.ParseUint(envStoreInterval, 10, 64)
 		if err != nil {
-			return cfg, storageCfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
+			return &cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
 		}
-		cfg.StoreInterval = tmpStoreInterval
+		storageCfg.StoreInterval = tmpStoreInterval
 	}
 
 	storageCfg.FileStoragePath = flagFileStoragePath
@@ -71,17 +66,17 @@ func NewServerConfig() (ServerCfg, StorageCfg, error) {
 		storageCfg.FileStoragePath = envFileStoragePath
 	}
 
-	cfg.Restore = flagRestore
+	storageCfg.Restore = flagRestore
 	envRestore, ok := os.LookupEnv("RESTORE")
 	if ok {
 		boolValue, err := strconv.ParseBool(envRestore)
 		if err != nil {
-			return cfg, storageCfg, fmt.Errorf("an error occured parsing bool value: %w", err)
+			return &cfg, fmt.Errorf("an error occured parsing bool value: %w", err)
 		}
-		cfg.Restore = boolValue
+		storageCfg.Restore = boolValue
 	}
-
-	return cfg, storageCfg, nil
+	cfg.StorageCfg = storageCfg
+	return &cfg, nil
 }
 
 func NewAgentConfig() (AgentCfg, error) {

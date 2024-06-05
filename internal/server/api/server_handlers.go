@@ -2,9 +2,7 @@ package api
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +12,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"go-yandex-metrics/internal/config"
 	"go-yandex-metrics/internal/storage"
 )
 
@@ -24,8 +21,13 @@ const (
 	oSuserRW        = 0o600
 )
 
+const (
+	GaugeType   string = "gauge"
+	CounterType string = "counter"
+)
+
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
-	allMetrics := getAllMetrics(s)
+	allMetrics := s.getAllMetrics()
 
 	t := s.tpl
 	var doc bytes.Buffer
@@ -48,7 +50,7 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getAllMetrics(s *Server) string {
+func (s *Server) getAllMetrics() string {
 	html := "<h3>Gauge:</h3>"
 	for mName, mValue := range s.store.MemStore.Gauge {
 		html += (mName + ":" + strconv.FormatFloat(mValue, 'f', -1, 64) + "<br>")
@@ -89,7 +91,6 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 			mValue, err := s.getSingleMetric(m.MType, m.ID)
 			if err != nil {
-				lg.Info(m.MType + " value doesn't exist for ID: " + m.ID)
 				w.WriteHeader(http.StatusNotFound)
 				return
 			} else {
@@ -98,24 +99,28 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 					return
 				}
 
-				w.WriteHeader(http.StatusOK)
-
 				var metric = storage.Metrics{}
 
 				switch m.MType {
-				case config.GaugeType:
+				case GaugeType:
 					mValue, err := strconv.ParseFloat(mValue, 64)
 					if err != nil {
-						s.logger.Fatal(fmt.Sprintf("failed to convert string to float64 value: %v", err))
+						s.logger.Info(fmt.Sprintf("failed to convert string to float64 value: %v", err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
 					}
 					metric = storage.Metrics{ID: m.ID, MType: m.MType, Value: &mValue}
-				case config.CounterType:
+				case CounterType:
 					mValue, err := strconv.ParseInt(mValue, 10, 64)
 					if err != nil {
-						s.logger.Fatal(fmt.Sprintf("failed to convert string to int64 value: %v", err))
+						s.logger.Info(fmt.Sprintf("failed to convert string to int64 value: %v", err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
 					}
 					metric = storage.Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
 				}
+
+				w.WriteHeader(http.StatusOK)
 
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
@@ -159,14 +164,14 @@ func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 	var ErrItemNotFound = errors.New("item not found")
 
 	switch mType {
-	case config.GaugeType:
+	case GaugeType:
 		if mValue, ok := s.store.MemStore.Gauge[mName]; !ok {
 			return "", ErrItemNotFound
 		} else {
 			html = strconv.FormatFloat(mValue, 'f', -1, 64)
 			return html, nil
 		}
-	case config.CounterType:
+	case CounterType:
 		if mValue, ok := s.store.MemStore.Counter[mName]; !ok {
 			return "", ErrItemNotFound
 		} else {
@@ -176,60 +181,6 @@ func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 	default:
 		return "", nil
 	}
-}
-
-func (s *Server) Save(mType, mName, mValue string, w http.ResponseWriter) {
-	lg := s.logger
-
-	switch mType {
-	case config.CounterType:
-		lg.Info("Saving counter. Name: " + mName + " Value: " + mValue)
-		s.saveCounter(mName, mValue, w)
-	case config.GaugeType:
-		lg.Info("Saving gauge. Name: " + mName + " Value: " + mValue)
-		s.saveGauge(mName, mValue, w)
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func (s *Server) saveCounter(mName, mValue string, w http.ResponseWriter) {
-	lg := s.logger
-
-	vFloat64, err := strconv.ParseFloat(mValue, 64)
-	if err != nil {
-		s.logger.Info(fmt.Sprintf("got error pasring float value for counter metric: %v", err))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	vInt64 := int64(vFloat64)
-	fmt.Println("Memstorage for counter:")
-	fmt.Println(s.store.MemStore)
-	s.store.MemStore.MemLock.Lock()
-	s.store.MemStore.Counter[mName] += vInt64
-	s.store.MemStore.MemLock.Unlock()
-
-	lg.Info("SAVED counter. Name: " + mName + " Value: " + mValue)
-}
-
-func (s *Server) saveGauge(mName, mValue string, w http.ResponseWriter) {
-	lg := s.logger
-
-	vFloat64, err := strconv.ParseFloat(mValue, 64)
-
-	if err != nil {
-		lg.Info("Got error pasring float value for gauge metric")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	fmt.Println("Memstorage for gauge:")
-	fmt.Println(s.store.MemStore)
-
-	s.store.MemStore.MemLock.Lock()
-	s.store.MemStore.Gauge[mName] = vFloat64
-	s.store.MemStore.MemLock.Unlock()
-
-	lg.Info("SAVED gauge. Name: " + mName + " Value: " + mValue)
 }
 
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
@@ -260,24 +211,26 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			var mValueTemp string
 
 			switch mType {
-			case config.GaugeType:
+			case GaugeType:
 				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 
 				lg.Info("Got gauge value from JSON, see next line")
 				lg.Info(mValueFloat)
 
-				s.Save(mType, mName, mValueFloat, w)
+				storage.SaveMetric(s.store, mType, mName, mValueFloat, w)
+
 				w.WriteHeader(http.StatusOK)
 
-				metric := storage.Metrics{ID: mName, MType: config.GaugeType, Value: m.Value}
-				w.Header().Set("Content-Length", strconv.Itoa(binary.Size(metric)))
+				metric := storage.Metrics{ID: mName, MType: GaugeType, Value: m.Value}
+
+				metricJSON, _ := json.Marshal(metric) // metricJSON is of type []byte
+				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
+
+				lg.Info(string(metricJSON)) // print it in characters
 
 				lg.Info("Sending back gauge value in response body, see next line")
 				mValueTemp = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 				lg.Info(mValueTemp)
-
-				johnJSON, _ := json.Marshal(metric) // johnJSON is of type []byte
-				lg.Info(string(johnJSON))           // print it in characters
 
 				err := json.NewEncoder(w).Encode(metric)
 				if err != nil {
@@ -285,13 +238,16 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					return
 				}
 
-			case config.CounterType:
+			case CounterType:
 				mValueInt = strconv.FormatInt(*m.Delta, 10)
-				s.Save(mType, mName, mValueInt, w)
+				storage.SaveMetric(s.store, mType, mName, mValueInt, w)
 				w.WriteHeader(http.StatusOK)
 
-				metric := storage.Metrics{ID: mName, MType: config.CounterType, Delta: m.Delta}
-				w.Header().Set("Content-Length", strconv.Itoa(binary.Size(metric)))
+				metric := storage.Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
+
+				metricJSON, _ := json.Marshal(metric) // metricJSON is of type []byte
+				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
+				lg.Info(string(metricJSON)) // print it in characters
 
 				err := json.NewEncoder(w).Encode(metric)
 				if err != nil {
@@ -304,13 +260,6 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			if s.storageCfg.FileStoragePath != "" {
-				err = s.store.Save(s.storageCfg.FileStoragePath)
-				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
-					return
-				}
-			}
 		} else {
 			if r.Method != http.MethodPost {
 				w.WriteHeader(http.StatusMethodNotAllowed)
@@ -321,8 +270,8 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			mName := chi.URLParam(r, "mname")
 			mValue := chi.URLParam(r, "mvalue")
 
-			if mType == config.GaugeType || mType == config.CounterType {
-				s.Save(mType, mName, mValue, w)
+			if mType == GaugeType || mType == CounterType {
+				storage.SaveMetric(s.store, mType, mName, mValue, w)
 				w.WriteHeader(http.StatusOK)
 			} else {
 				w.WriteHeader(http.StatusBadRequest)

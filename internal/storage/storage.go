@@ -3,10 +3,18 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"strconv"
 	"sync"
 
-	logger "go-yandex-metrics/cmd/server/middleware"
+	"go-yandex-metrics/internal/config"
+	logger "go-yandex-metrics/internal/server/middleware"
+)
+
+const (
+	GaugeType   string = "gauge"
+	CounterType string = "counter"
 )
 
 type Metrics struct {
@@ -19,7 +27,7 @@ type Metrics struct {
 type MemStorage struct {
 	Gauge   map[string]float64 `json:"gauge"`
 	Counter map[string]int64   `json:"counter"`
-	MemLock sync.Mutex         `json:"memlock"`
+	memLock sync.Mutex
 }
 
 type FileStorage struct {
@@ -27,8 +35,16 @@ type FileStorage struct {
 	SavePath string      `json:"file_storage_path"`
 }
 
+type Store struct {
+	MemStore *MemStorage `json:"data"`
+	// FileStore *FileStorage
+	// db     *sql.DB
+}
+
 type StorageCfg struct {
 	FileStoragePath string `json:"file_storage_path"`
+	StoreInterval   uint64 `json:"store_interval"`
+	Restore         bool   `json:"restore"`
 }
 
 func NewMemStorage() *MemStorage {
@@ -46,38 +62,108 @@ func NewFileStorage() *FileStorage {
 	}
 }
 
-func (f *FileStorage) Save(filePath string) error {
+func NewStore(cfg config.ServerCfg) (*Store, error) {
 	lg := logger.InitLogger()
 
-	data, err := json.MarshalIndent(f, "", "   ")
+	var store = &Store{
+		MemStore: NewMemStorage(),
+		// FileStore: NewFileStorage(),
+	}
+	lg.Info("file storage path: " + cfg.StorageCfg.FileStoragePath)
+	if cfg.StorageCfg.FileStoragePath != "" {
+		if cfg.StorageCfg.Restore {
+			lg.Info("loading metrics from file")
+			_, err := Load(store, cfg.StorageCfg.FileStoragePath)
+			if err != nil {
+				lg.Info("got error loading metrics from file: " + cfg.StorageCfg.FileStoragePath)
+				return nil, err
+			}
+		}
+	}
+
+	return store, nil
+}
+
+func (s *Store) Save(filePath string) error {
+	lg := logger.InitLogger()
+
+	data, err := json.MarshalIndent(s, "", "   ")
 	if err != nil {
-		lg.Info("Cannot marshal storage")
+		lg.Info("cannot marshal storage")
 		return fmt.Errorf("cannot marshal storage: %w", err)
 	}
 
 	err = os.WriteFile(filePath, data, 0o600)
 	if err != nil {
-		lg.Info("Cannot save storage to file")
+		lg.Info("cannot save storage to file")
 		return fmt.Errorf("cannot save storage to file: %w", err)
 	}
 
 	return nil
 }
 
-func (f *FileStorage) Load(filePath string) (*FileStorage, error) {
+func Load(s *Store, filePath string) (*Store, error) {
 	lg := logger.InitLogger()
-
-	fmt.Println(f.MemStore)
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		lg.Info("Cannot read storage file")
+		lg.Info(fmt.Sprintf("cannot read storage file: %v", err))
 		return nil, fmt.Errorf("cannot read storage file: %w", err)
 	}
-	if err := json.Unmarshal(data, f); err != nil {
-		lg.Info("Cannot unmarshal storage file")
+	if err := json.Unmarshal(data, s); err != nil {
+		lg.Info(fmt.Sprintf("cannot unmarshal storage file: %v", err))
 		return nil, fmt.Errorf("cannot unmarshal storage file: %w", err)
 	}
 
-	return f, nil
+	return s, nil
+}
+
+func SaveMetric(store *Store, mType, mName, mValue string, w http.ResponseWriter) {
+	lg := logger.InitLogger()
+
+	switch mType {
+	case CounterType:
+		lg.Info("Saving counter. Name: " + mName + " Value: " + mValue)
+		saveCounter(store, mName, mValue, w)
+	case GaugeType:
+		lg.Info("Saving gauge. Name: " + mName + " Value: " + mValue)
+		saveGauge(store, mName, mValue, w)
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+func saveCounter(store *Store, mName, mValue string, w http.ResponseWriter) {
+	lg := logger.InitLogger()
+
+	vFloat64, err := strconv.ParseFloat(mValue, 64)
+	if err != nil {
+		lg.Info(fmt.Sprintf("got error pasring float value for counter metric: %v", err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	vInt64 := int64(vFloat64)
+	store.MemStore.memLock.Lock()
+	store.MemStore.Counter[mName] += vInt64
+	store.MemStore.memLock.Unlock()
+
+	lg.Info("SAVED counter. Name: " + mName + " Value: " + mValue)
+}
+
+func saveGauge(store *Store, mName, mValue string, w http.ResponseWriter) {
+	lg := logger.InitLogger()
+
+	vFloat64, err := strconv.ParseFloat(mValue, 64)
+
+	if err != nil {
+		lg.Info("Got error pasring float value for gauge metric")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	store.MemStore.memLock.Lock()
+	store.MemStore.Gauge[mName] = vFloat64
+	store.MemStore.memLock.Unlock()
+
+	lg.Info("SAVED gauge. Name: " + mName + " Value: " + mValue)
 }

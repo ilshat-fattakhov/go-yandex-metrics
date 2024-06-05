@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -16,22 +17,18 @@ func InitLogger() *zap.Logger {
 	if err != nil {
 		fmt.Printf("Can't initialize zap logger: %v", err)
 	}
-	// defer func() {
-	//	if err := logger.Sync(); err != nil {
-	//		logger.Info(fmt.Sprintf("failed to sync logger: %v", err))
-	//		return
-	//	}
-	// }()
+
 	return logger
 }
 
 func Logger(lg *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				lg.Error("Error getting request body", zap.Error(err))
+				lg.Error("error getting request body", zap.Error(err))
+				log.Fatal("error getting request body", err)
 			}
 
 			r.Body = io.NopCloser(bytes.NewReader(body))
@@ -53,7 +50,6 @@ func Logger(lg *zap.Logger) func(next http.Handler) http.Handler {
 			}()
 
 			next.ServeHTTP(ww, r)
-		}
-		return http.HandlerFunc(fn)
+		})
 	}
 }

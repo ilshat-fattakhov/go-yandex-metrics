@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	logger "go-yandex-metrics/cmd/server/middleware"
-	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/storage"
-
 	"go.uber.org/zap"
+
+	"go-yandex-metrics/internal/config"
+	logger "go-yandex-metrics/internal/server/middleware"
+	"go-yandex-metrics/internal/storage"
 )
 
 type AgentCfg struct {
@@ -35,26 +35,17 @@ func NewAgent(cfg config.AgentCfg, store *storage.FileStorage) *Agent {
 }
 
 func (a *Agent) Start() error {
-	lg := a.logger
-
 	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
 	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
 
 	for {
 		select {
 		case <-tickerSave.C:
-			err := a.SaveMetrics(lg)
-
-			fmt.Println(a.store.MemStore)
-
-			if err != nil {
-				lg.Info(fmt.Sprintf("failed to save metrics: %v", err))
-				return nil
-			}
+			a.saveMetrics()
 		case <-tickerSend.C:
-			err := a.SendMetrics(lg)
+			err := a.sendMetrics()
 			if err != nil {
-				lg.Info(fmt.Sprintf("failed to send metric: %v", err))
+				a.logger.Info(fmt.Sprintf("failed to send metric: %v", err))
 				return nil
 			}
 		}

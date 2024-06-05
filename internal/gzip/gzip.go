@@ -3,10 +3,11 @@ package gzip
 import (
 	"compress/gzip"
 	"fmt"
-	logger "go-yandex-metrics/cmd/server/middleware"
 	"io"
 	"net/http"
 	"strings"
+
+	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 type compressWriter struct {
