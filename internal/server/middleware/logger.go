@@ -2,7 +2,6 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,7 +14,7 @@ import (
 func InitLogger() *zap.Logger {
 	logger, err := zap.NewProduction()
 	if err != nil {
-		fmt.Printf("Can't initialize zap logger: %v", err)
+		log.Printf("Can't initialize zap logger: %v", err)
 	}
 
 	return logger

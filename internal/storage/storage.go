@@ -104,17 +104,35 @@ func (s *Store) Save(filePath string) error {
 func Load(s *Store, filePath string) (*Store, error) {
 	lg := logger.InitLogger()
 
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		lg.Info(fmt.Sprintf("cannot read storage file: %v", err))
-		return nil, fmt.Errorf("cannot read storage file: %w", err)
-	}
-	if err := json.Unmarshal(data, s); err != nil {
-		lg.Info(fmt.Sprintf("cannot unmarshal storage file: %v", err))
-		return nil, fmt.Errorf("cannot unmarshal storage file: %w", err)
-	}
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			os.Create(filePath)
+			return &Store{
+				MemStore: NewMemStorage(),
+				// FileStore: NewFileStorage(),
+			}, nil
 
-	return s, nil
+		} else {
+			lg.Info(fmt.Sprintf("storage file error: %v", err))
+			return nil, fmt.Errorf("storage file error: %w", err)
+		}
+	} else {
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			lg.Info(fmt.Sprintf("cannot read storage file: %v", err))
+			return nil, fmt.Errorf("cannot read storage file: %w", err)
+		}
+		if err := json.Unmarshal(data, s); err != nil {
+			// file is empty so far, return memory storage
+			lg.Info(fmt.Sprintf("cannot unmarshal storage file: %v", err))
+			return &Store{
+				MemStore: NewMemStorage(),
+				// FileStore: NewFileStorage(),
+			}, nil
+		}
+		return s, nil
+	}
 }
 
 func SaveMetric(store *Store, mType, mName, mValue string, w http.ResponseWriter) {
