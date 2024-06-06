@@ -106,18 +106,20 @@ func Load(s *Store, filePath string) (*Store, error) {
 
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
-			os.Create(filePath)
+			_, err := os.Create(filePath)
+			if err != nil {
+				lg.Info(fmt.Sprintf("error creating storage file: %v", err))
+				return nil, fmt.Errorf("error creating storage file: %w", err)
+			}
 			return &Store{
 				MemStore: NewMemStorage(),
 				// FileStore: NewFileStorage(),
 			}, nil
-
 		} else {
 			lg.Info(fmt.Sprintf("storage file error: %v", err))
 			return nil, fmt.Errorf("storage file error: %w", err)
 		}
 	} else {
-
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			lg.Info(fmt.Sprintf("cannot read storage file: %v", err))
