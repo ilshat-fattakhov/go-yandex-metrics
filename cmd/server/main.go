@@ -16,7 +16,6 @@ func main() {
 	defer func() {
 		if err := lg.Sync(); err != nil {
 			lg.Info(fmt.Sprintf("failed to sync logger: %v", err))
-			return
 		}
 	}()
 

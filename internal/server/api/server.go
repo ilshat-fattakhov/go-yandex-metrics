@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"text/template"
 	"time"
@@ -11,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/storage"
 	"go-yandex-metrics/internal/gzip"
 	logger "go-yandex-metrics/internal/server/middleware"
+	"go-yandex-metrics/internal/storage"
 )
 
 type Server struct {
@@ -69,11 +70,12 @@ func (s *Server) Start(cfg config.ServerCfg) error {
 		Handler: s.router,
 	}
 	saveData(s)
+
 	s.logger.Info("starting server")
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			s.logger.Info(fmt.Sprintf("HTTP server has encountered an error: %v", err))
-			return nil
+			return fmt.Errorf("HTTP server has encountered an errors: %w", err)
 		}
 	}
 
@@ -113,7 +115,7 @@ func saveData(s *Server) {
 				err := (*storage.Store).Save(s.store, s.cfg.StorageCfg.FileStoragePath)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
-					return
+					log.Panicf("failed to store metrics: %v", err)
 				}
 			}
 		}()

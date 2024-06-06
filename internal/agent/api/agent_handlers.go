@@ -57,7 +57,6 @@ func (a *Agent) saveMetrics() {
 }
 
 func (a *Agent) sendMetrics() error {
-	a.logger.Info("sending metrics in JSON format")
 	c := &http.Client{Timeout: time.Duration(1) * time.Second}
 
 	for n, v := range a.store.MemStore.Gauge {
@@ -111,7 +110,6 @@ func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method s
 		a.logger.Info(fmt.Sprintf("failed to join path parts for gauge JSON POST URL: %v", err))
 		return fmt.Errorf("failed to join path parts for gauge JSON POST URL: %w", err)
 	}
-	a.logger.Info("sending " + mType + " metrics " + (buf.String()))
 
 	req, err := http.NewRequest(method, sendURL, &buf)
 	if err != nil {
@@ -130,9 +128,9 @@ func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method s
 	// return fmt.Errorf("failed to do a request: %w", err)
 	// }
 
-	//	if resp != nil {
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
-	//	}
+	if resp != nil {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
 	return nil
 }

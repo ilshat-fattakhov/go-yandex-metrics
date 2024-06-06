@@ -45,8 +45,8 @@ func (a *Agent) Start() error {
 		case <-tickerSend.C:
 			err := a.sendMetrics()
 			if err != nil {
-				a.logger.Info(fmt.Sprintf("failed to send metric: %v", err))
-				return nil
+				a.logger.Info(fmt.Sprintf("failed to send metrics: %v", err))
+				return fmt.Errorf("failed to send metrics: %w", err)
 			}
 		}
 	}

@@ -64,9 +64,6 @@ func (s *Server) getAllMetrics() string {
 
 func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		lg.Info("Request URI: " + r.RequestURI)
-		lg.Info("Request method: " + r.Method)
-
 		requestedJSON := false
 		contentType := r.Header.Get("Content-Type")
 		if contentType == applicationJSON {
@@ -185,18 +182,18 @@ func (s *Server) getSingleMetric(mType, mName string) (string, error) {
 
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Info("r.RequestURI: " + r.RequestURI + "r.Method: " + r.Method)
 		if r.RequestURI == "/update/" && r.Method == http.MethodPost {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				lg.Info("error reading request body", zap.Error(err))
+				s.logger.Info(fmt.Sprintf("aerror reading request body: %v", err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
 			}
 
 			w.Header().Set(ContentType, applicationJSON)
 
 			var m storage.Metrics
 
-			lg.Info("Decoding JSON request")
 			err = json.Unmarshal(body, &m)
 			if err != nil {
 				lg.Info("Got error decoding JSON request")
@@ -208,31 +205,24 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			mName := m.ID
 			var mValueFloat string
 			var mValueInt string
-			var mValueTemp string
 
 			switch mType {
 			case GaugeType:
 				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
-
-				lg.Info("Got gauge value from JSON, see next line")
-				lg.Info(mValueFloat)
-
 				storage.SaveMetric(s.store, mType, mName, mValueFloat, w)
 
 				w.WriteHeader(http.StatusOK)
 
 				metric := storage.Metrics{ID: mName, MType: GaugeType, Value: m.Value}
 
-				metricJSON, _ := json.Marshal(metric) // metricJSON is of type []byte
+				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
+				if err != nil {
+					s.logger.Info(fmt.Sprintf("failed to marshal metric: %v", err))
+					return
+				}
 				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
 
-				lg.Info(string(metricJSON)) // print it in characters
-
-				lg.Info("Sending back gauge value in response body, see next line")
-				mValueTemp = strconv.FormatFloat(*m.Value, 'f', -1, 64)
-				lg.Info(mValueTemp)
-
-				err := json.NewEncoder(w).Encode(metric)
+				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
 					return
@@ -245,18 +235,23 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 				metric := storage.Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
 
-				metricJSON, _ := json.Marshal(metric) // metricJSON is of type []byte
+				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
+				if err != nil {
+					s.logger.Info("got error marshalling metrics to JSON")
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
-				lg.Info(string(metricJSON)) // print it in characters
 
-				err := json.NewEncoder(w).Encode(metric)
+				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
 			default:
-				lg.Info("Wrong metric type - neither gauge nor counter")
+				lg.Info("wrong metric type - neither gauge nor counter")
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}

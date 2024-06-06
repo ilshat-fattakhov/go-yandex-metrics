@@ -69,10 +69,9 @@ func NewStore(cfg config.ServerCfg) (*Store, error) {
 		MemStore: NewMemStorage(),
 		// FileStore: NewFileStorage(),
 	}
-	lg.Info("file storage path: " + cfg.StorageCfg.FileStoragePath)
+
 	if cfg.StorageCfg.FileStoragePath != "" {
 		if cfg.StorageCfg.Restore {
-			lg.Info("loading metrics from file")
 			_, err := Load(store, cfg.StorageCfg.FileStoragePath)
 			if err != nil {
 				lg.Info("got error loading metrics from file: " + cfg.StorageCfg.FileStoragePath)
@@ -119,14 +118,10 @@ func Load(s *Store, filePath string) (*Store, error) {
 }
 
 func SaveMetric(store *Store, mType, mName, mValue string, w http.ResponseWriter) {
-	lg := logger.InitLogger()
-
 	switch mType {
 	case CounterType:
-		lg.Info("Saving counter. Name: " + mName + " Value: " + mValue)
 		saveCounter(store, mName, mValue, w)
 	case GaugeType:
-		lg.Info("Saving gauge. Name: " + mName + " Value: " + mValue)
 		saveGauge(store, mName, mValue, w)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -146,8 +141,6 @@ func saveCounter(store *Store, mName, mValue string, w http.ResponseWriter) {
 	store.MemStore.memLock.Lock()
 	store.MemStore.Counter[mName] += vInt64
 	store.MemStore.memLock.Unlock()
-
-	lg.Info("SAVED counter. Name: " + mName + " Value: " + mValue)
 }
 
 func saveGauge(store *Store, mName, mValue string, w http.ResponseWriter) {
@@ -164,6 +157,4 @@ func saveGauge(store *Store, mName, mValue string, w http.ResponseWriter) {
 	store.MemStore.memLock.Lock()
 	store.MemStore.Gauge[mName] = vFloat64
 	store.MemStore.memLock.Unlock()
-
-	lg.Info("SAVED gauge. Name: " + mName + " Value: " + mValue)
 }
