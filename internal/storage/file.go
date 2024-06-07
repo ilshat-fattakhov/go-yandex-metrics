@@ -18,13 +18,13 @@ type FileStorage struct {
 func NewFileStorage(cfg config.ServerCfg) (Storage, error) {
 	memStore, err := NewMemStorage(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("error creating memory storage: %v", err)
+		return nil, fmt.Errorf("error creating memory storage: %w", err)
 	}
 
 	if cfg.StorageCfg.Restore {
 		err := LoadMetrics(memStore, cfg.StorageCfg.FileStoragePath)
 		if err != nil {
-			return nil, fmt.Errorf("got error loading metrics from file: %v", err)
+			return nil, fmt.Errorf("got error loading metrics from file: %w", err)
 		}
 		return &FileStorage{
 			MemStore: memStore,
@@ -60,7 +60,7 @@ func LoadMetrics(s *MemStorage, filePath string) error {
 
 		if err := json.Unmarshal(data, &s); err != nil {
 			// file is empty so far, return memory storage ???
-			return fmt.Errorf("cannot unmarshal storage file, file is probably empty: %v", err)
+			return fmt.Errorf("cannot unmarshal storage file, file is probably empty: %w", err)
 		}
 		fmt.Println(s)
 		lg.Info("finished loading metrics")
