@@ -27,7 +27,8 @@ func Logger(lg *zap.Logger) func(next http.Handler) http.Handler {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				lg.Error("error getting request body", zap.Error(err))
-				log.Fatal("error getting request body", err)
+				ww.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 
 			r.Body = io.NopCloser(bytes.NewReader(body))

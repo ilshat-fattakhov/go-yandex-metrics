@@ -11,19 +11,15 @@ import (
 )
 
 type compressWriter struct {
-	w  http.ResponseWriter
+	http.ResponseWriter
 	zw *gzip.Writer
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
-		w:  w,
-		zw: gzip.NewWriter(w),
+		ResponseWriter: w,
+		zw:             gzip.NewWriter(w),
 	}
-}
-
-func (c *compressWriter) Header() http.Header {
-	return c.w.Header()
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
@@ -36,9 +32,9 @@ func (c *compressWriter) Write(p []byte) (int, error) {
 
 func (c *compressWriter) WriteHeader(statusCode int) {
 	if statusCode < http.StatusMultipleChoices {
-		c.w.Header().Set("Content-Encoding", "gzip")
+		c.Header().Set("Content-Encoding", "gzip")
 	}
-	c.w.WriteHeader(statusCode)
+	c.ResponseWriter.WriteHeader(statusCode)
 }
 
 func (c *compressWriter) Close() error {
@@ -98,6 +94,7 @@ func GzipMiddleware() func(next http.Handler) http.Handler {
 				defer func() {
 					if err := cw.Close(); err != nil {
 						lg.Info(fmt.Sprintf("failed to close newCompressWriter: %v", err))
+						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 				}()
@@ -108,7 +105,7 @@ func GzipMiddleware() func(next http.Handler) http.Handler {
 			if sendsGzip {
 				cr, err := newCompressReader(r.Body)
 				if err != nil {
-					lg.Info(fmt.Sprintf("failed to close newCompressWriter: %v", err))
+					lg.Info(fmt.Sprintf("failed to create newCompressReader: %v", err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -116,6 +113,7 @@ func GzipMiddleware() func(next http.Handler) http.Handler {
 				defer func() {
 					if err := cr.Close(); err != nil {
 						lg.Info(fmt.Sprintf("failed to close newCompressReader: %v", err))
+						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 				}()

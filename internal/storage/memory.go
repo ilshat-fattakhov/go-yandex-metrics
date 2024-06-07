@@ -3,11 +3,12 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"go-yandex-metrics/internal/config"
-	logger "go-yandex-metrics/internal/server/middleware"
 	"net/http"
 	"strconv"
 	"sync"
+
+	"go-yandex-metrics/internal/config"
+	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 const (
@@ -98,7 +99,7 @@ func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 	vFloat64, err := strconv.ParseFloat(mValue, 64)
 
 	if err != nil {
-		lg.Info("got error parsing float value for gauge metric")
+		lg.Info(fmt.Sprintf("got error parsing float value for gauge metric: %v", err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
