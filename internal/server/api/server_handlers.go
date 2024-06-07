@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,8 +25,15 @@ const (
 	CounterType string = "counter"
 )
 
+type Metrics struct {
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	ID    string   `json:"id"`              // имя метрики
+}
+
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
-	allMetrics := s.getAllMetrics()
+	allMetrics := s.store.GetAllMetrics()
 
 	t := s.tpl
 	var doc bytes.Buffer
@@ -50,18 +56,6 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getAllMetrics() string {
-	html := "<h3>Gauge:</h3>"
-	for mName, mValue := range s.store.MemStore.Gauge {
-		html += (mName + ":" + strconv.FormatFloat(mValue, 'f', -1, 64) + "<br>")
-	}
-	html += "<h3>Counter:</h3>"
-	for mName, mValue := range s.store.MemStore.Counter {
-		html += (mName + ":" + strconv.FormatInt(mValue, 10) + "<br>")
-	}
-	return html
-}
-
 func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestedJSON := false
@@ -78,7 +72,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 			w.Header().Set(ContentType, applicationJSON)
 
-			var m storage.Metrics
+			var m Metrics
 
 			err = json.Unmarshal(body, &m)
 			if err != nil {
@@ -86,7 +80,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				return
 			}
 
-			mValue, err := s.getSingleMetric(m.MType, m.ID)
+			mValue, err := s.store.GetMetric(m.MType, m.ID)
 			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -96,7 +90,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 					return
 				}
 
-				var metric = storage.Metrics{}
+				var metric = Metrics{}
 
 				switch m.MType {
 				case GaugeType:
@@ -106,7 +100,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
-					metric = storage.Metrics{ID: m.ID, MType: m.MType, Value: &mValue}
+					metric = Metrics{ID: m.ID, MType: m.MType, Value: &mValue}
 				case CounterType:
 					mValue, err := strconv.ParseInt(mValue, 10, 64)
 					if err != nil {
@@ -114,7 +108,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
-					metric = storage.Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
+					metric = Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
 				}
 
 				w.WriteHeader(http.StatusOK)
@@ -129,7 +123,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 		} else {
 			mType := chi.URLParam(r, "mtype")
 			mName := chi.URLParam(r, "mname")
-			mValue, err := s.getSingleMetric(mType, mName)
+			mValue, err := s.store.GetMetric(mType, mName)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
@@ -156,30 +150,6 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 	}
 }
 
-func (s *Server) getSingleMetric(mType, mName string) (string, error) {
-	var html string
-	var ErrItemNotFound = errors.New("item not found")
-
-	switch mType {
-	case GaugeType:
-		if mValue, ok := s.store.MemStore.Gauge[mName]; !ok {
-			return "", ErrItemNotFound
-		} else {
-			html = strconv.FormatFloat(mValue, 'f', -1, 64)
-			return html, nil
-		}
-	case CounterType:
-		if mValue, ok := s.store.MemStore.Counter[mName]; !ok {
-			return "", ErrItemNotFound
-		} else {
-			html = strconv.FormatInt(mValue, 10)
-			return html, nil
-		}
-	default:
-		return "", nil
-	}
-}
-
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.RequestURI == "/update/" && r.Method == http.MethodPost {
@@ -192,7 +162,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 			w.Header().Set(ContentType, applicationJSON)
 
-			var m storage.Metrics
+			var m Metrics
 
 			err = json.Unmarshal(body, &m)
 			if err != nil {
@@ -209,11 +179,11 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			switch mType {
 			case GaugeType:
 				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
-				storage.SaveMetric(s.store, mType, mName, mValueFloat, w)
+				storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat, w)
 
 				w.WriteHeader(http.StatusOK)
 
-				metric := storage.Metrics{ID: mName, MType: GaugeType, Value: m.Value}
+				metric := Metrics{ID: mName, MType: GaugeType, Value: m.Value}
 
 				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
 				if err != nil {
@@ -230,10 +200,10 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 			case CounterType:
 				mValueInt = strconv.FormatInt(*m.Delta, 10)
-				storage.SaveMetric(s.store, mType, mName, mValueInt, w)
+				storage.Storage.SaveMetric(s.store, mType, mName, mValueInt, w)
 				w.WriteHeader(http.StatusOK)
 
-				metric := storage.Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
+				metric := Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
 
 				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
 				if err != nil {
@@ -266,7 +236,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			mValue := chi.URLParam(r, "mvalue")
 
 			if mType == GaugeType || mType == CounterType {
-				storage.SaveMetric(s.store, mType, mName, mValue, w)
+				storage.Storage.SaveMetric(s.store, mType, mName, mValue, w)
 				w.WriteHeader(http.StatusOK)
 			} else {
 				w.WriteHeader(http.StatusBadRequest)

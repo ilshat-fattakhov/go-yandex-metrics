@@ -7,7 +7,6 @@ import (
 	"go-yandex-metrics/internal/agent/api"
 	"go-yandex-metrics/internal/config"
 	logger "go-yandex-metrics/internal/server/middleware"
-	"go-yandex-metrics/internal/storage"
 )
 
 func main() {
@@ -24,7 +23,10 @@ func main() {
 		log.Panicf("failed to create config: %v", err)
 	}
 
-	store := storage.NewFileStorage()
+	store, err := api.NewAgentMemStorage(cfg)
+	if err != nil {
+		log.Panicf("got error creating storage %v", err)
+	}
 	agent := api.NewAgent(cfg, store)
 
 	err = agent.Start()

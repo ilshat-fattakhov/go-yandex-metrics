@@ -2,13 +2,13 @@ package api
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
 	logger "go-yandex-metrics/internal/server/middleware"
-	"go-yandex-metrics/internal/storage"
 )
 
 type AgentCfg struct {
@@ -19,11 +19,17 @@ type AgentCfg struct {
 
 type Agent struct {
 	logger *zap.Logger
-	store  *storage.FileStorage
+	store  *MemStorage
 	cfg    config.AgentCfg
 }
 
-func NewAgent(cfg config.AgentCfg, store *storage.FileStorage) *Agent {
+type MemStorage struct {
+	Gauge   map[string]float64 `json:"gauge"`
+	Counter map[string]int64   `json:"counter"`
+	memLock sync.Mutex
+}
+
+func NewAgent(cfg config.AgentCfg, store *MemStorage) *Agent {
 	lg := logger.InitLogger()
 
 	agt := &Agent{
@@ -50,4 +56,11 @@ func (a *Agent) Start() error {
 			}
 		}
 	}
+}
+
+func NewAgentMemStorage(cfg config.AgentCfg) (*MemStorage, error) {
+	return &MemStorage{
+		Gauge:   make(map[string]float64),
+		Counter: make(map[string]int64),
+	}, nil
 }

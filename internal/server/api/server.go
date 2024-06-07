@@ -21,7 +21,7 @@ type Server struct {
 	router *chi.Mux
 	tpl    *template.Template
 	logger *zap.Logger
-	store  *storage.Store
+	store  storage.Storage
 	cfg    config.ServerCfg
 }
 
@@ -112,7 +112,7 @@ func saveData(s *Server) {
 		go func() {
 			tickerStore := time.NewTicker(time.Duration(s.cfg.StorageCfg.StoreInterval) * time.Second)
 			for range tickerStore.C {
-				err := (*storage.Store).Save(s.store, s.cfg.StorageCfg.FileStoragePath)
+				err := storage.SaveMetrics(s.store, s.cfg.StorageCfg.FileStoragePath)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
 					log.Panicf("failed to store metrics: %v", err)

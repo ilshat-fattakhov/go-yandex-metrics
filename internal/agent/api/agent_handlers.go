@@ -11,8 +11,6 @@ import (
 	"runtime"
 	"strconv"
 	"time"
-
-	"go-yandex-metrics/internal/storage"
 )
 
 const (
@@ -21,77 +19,88 @@ const (
 	updatePath         = "update"
 )
 
+type Metrics struct {
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	ID    string   `json:"id"`              // имя метрики
+}
+
 func (a *Agent) saveMetrics() {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
-	a.store.MemStore.Gauge["Alloc"] = float64(m.Alloc)
-	a.store.MemStore.Gauge["BuckHashSys"] = float64(m.BuckHashSys)
-	a.store.MemStore.Gauge["Frees"] = float64(m.Frees)
-	a.store.MemStore.Gauge["GCCPUFraction"] = float64(m.GCCPUFraction)
-	a.store.MemStore.Gauge["GCSys"] = float64(m.GCSys)
-	a.store.MemStore.Gauge["HeapAlloc"] = float64(m.HeapAlloc)
-	a.store.MemStore.Gauge["HeapIdle"] = float64(m.HeapIdle)
-	a.store.MemStore.Gauge["HeapInuse"] = float64(m.HeapInuse)
-	a.store.MemStore.Gauge["HeapObjects"] = float64(m.HeapObjects)
-	a.store.MemStore.Gauge["HeapReleased"] = float64(m.HeapReleased)
-	a.store.MemStore.Gauge["HeapSys"] = float64(m.HeapSys)
-	a.store.MemStore.Gauge["LastGC"] = float64(m.LastGC)
-	a.store.MemStore.Gauge["Lookups"] = float64(m.Lookups)
-	a.store.MemStore.Gauge["MCacheInuse"] = float64(m.MCacheInuse)
-	a.store.MemStore.Gauge["MCacheSys"] = float64(m.MCacheSys)
-	a.store.MemStore.Gauge["MSpanInuse"] = float64(m.MSpanInuse)
-	a.store.MemStore.Gauge["MSpanSys"] = float64(m.MSpanSys)
-	a.store.MemStore.Gauge["Mallocs"] = float64(m.Mallocs)
-	a.store.MemStore.Gauge["NextGC"] = float64(m.NextGC)
-	a.store.MemStore.Gauge["NumForcedGC"] = float64(m.NumForcedGC)
-	a.store.MemStore.Gauge["NumGC"] = float64(m.NumGC)
-	a.store.MemStore.Gauge["OtherSys"] = float64(m.OtherSys)
-	a.store.MemStore.Gauge["PauseTotalNs"] = float64(m.PauseTotalNs)
-	a.store.MemStore.Gauge["StackInuse"] = float64(m.StackInuse)
-	a.store.MemStore.Gauge["StackSys"] = float64(m.StackSys)
-	a.store.MemStore.Gauge["Sys"] = float64(m.Sys)
-	a.store.MemStore.Gauge["TotalAlloc"] = float64(m.TotalAlloc)
-	a.store.MemStore.Gauge["RandomValue"] = rand.Float64()
-	a.store.MemStore.Counter["PollCount"]++
+	a.store.memLock.Lock()
+
+	a.store.Gauge["Alloc"] = float64(m.Alloc)
+	a.store.Gauge["BuckHashSys"] = float64(m.BuckHashSys)
+	a.store.Gauge["Frees"] = float64(m.Frees)
+	a.store.Gauge["GCCPUFraction"] = float64(m.GCCPUFraction)
+	a.store.Gauge["GCSys"] = float64(m.GCSys)
+	a.store.Gauge["HeapAlloc"] = float64(m.HeapAlloc)
+	a.store.Gauge["HeapIdle"] = float64(m.HeapIdle)
+	a.store.Gauge["HeapInuse"] = float64(m.HeapInuse)
+	a.store.Gauge["HeapObjects"] = float64(m.HeapObjects)
+	a.store.Gauge["HeapReleased"] = float64(m.HeapReleased)
+	a.store.Gauge["HeapSys"] = float64(m.HeapSys)
+	a.store.Gauge["LastGC"] = float64(m.LastGC)
+	a.store.Gauge["Lookups"] = float64(m.Lookups)
+	a.store.Gauge["MCacheInuse"] = float64(m.MCacheInuse)
+	a.store.Gauge["MCacheSys"] = float64(m.MCacheSys)
+	a.store.Gauge["MSpanInuse"] = float64(m.MSpanInuse)
+	a.store.Gauge["MSpanSys"] = float64(m.MSpanSys)
+	a.store.Gauge["Mallocs"] = float64(m.Mallocs)
+	a.store.Gauge["NextGC"] = float64(m.NextGC)
+	a.store.Gauge["NumForcedGC"] = float64(m.NumForcedGC)
+	a.store.Gauge["NumGC"] = float64(m.NumGC)
+	a.store.Gauge["OtherSys"] = float64(m.OtherSys)
+	a.store.Gauge["PauseTotalNs"] = float64(m.PauseTotalNs)
+	a.store.Gauge["StackInuse"] = float64(m.StackInuse)
+	a.store.Gauge["StackSys"] = float64(m.StackSys)
+	a.store.Gauge["Sys"] = float64(m.Sys)
+	a.store.Gauge["TotalAlloc"] = float64(m.TotalAlloc)
+	a.store.Gauge["RandomValue"] = rand.Float64()
+	a.store.Counter["PollCount"]++
+
+	a.store.memLock.Unlock()
 }
 
 func (a *Agent) sendMetrics() error {
 	c := &http.Client{Timeout: time.Duration(1) * time.Second}
 
-	for n, v := range a.store.MemStore.Gauge {
+	for n, v := range a.store.Gauge {
 		err := a.sendData(c, v, n, GaugeType, http.MethodPost)
 		if err != nil {
 			return fmt.Errorf("an error occured sending gauge data: %w", err)
 		}
 	}
 
-	for n, v := range a.store.MemStore.Counter {
+	for n, v := range a.store.Counter {
 		err := a.sendData(c, v, n, CounterType, http.MethodPost)
 		if err != nil {
 			return fmt.Errorf("an error occured sending counter data: %w", err)
 		}
 	}
 
-	a.store.MemStore.Counter["PollCount"] = 0
+	a.store.Counter["PollCount"] = 0
 	return nil
 }
 
 func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method string) error {
-	var metric = storage.Metrics{}
+	var metric = Metrics{}
 
 	switch mType {
 	case GaugeType:
 		switch i := v.(type) {
 		case float64:
-			metric = storage.Metrics{ID: n, MType: GaugeType, Value: &i}
+			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
 		default:
 			return nil
 		}
 	case CounterType:
 		switch i := v.(type) {
 		case int64:
-			metric = storage.Metrics{ID: n, MType: CounterType, Delta: &i}
+			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
 		default:
 			return nil
 		}

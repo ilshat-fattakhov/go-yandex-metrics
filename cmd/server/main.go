@@ -21,7 +21,6 @@ func main() {
 
 	cfg, err := config.NewServerConfig()
 	lg.Info("server configuration settings" + fmt.Sprint(cfg))
-
 	if err != nil {
 		lg.Info("got error creating configuration", zap.Error(err))
 		log.Panicf("failed to create config: %v", err)
