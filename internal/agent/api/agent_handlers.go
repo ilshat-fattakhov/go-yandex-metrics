@@ -132,7 +132,7 @@ func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method s
 	resp, _ := c.Do(req)
 	// если раскомментировать строки ниже, автотест не проходится
 	// с ошибкой "невозможно установить соединение с сервером"
-	//if err != nil {
+	// if err != nil {
 	//	a.logger.Info(fmt.Sprintf("failed to do a request: %v", err))
 	//	return fmt.Errorf("failed to do a request: %w", err)
 	//}
