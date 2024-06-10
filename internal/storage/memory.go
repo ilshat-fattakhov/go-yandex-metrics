@@ -19,13 +19,14 @@ const (
 type MemStorage struct {
 	Gauge   map[string]float64 `json:"gauge"`
 	Counter map[string]int64   `json:"counter"`
-	memLock sync.Mutex
+	memLock *sync.Mutex
 }
 
-func NewMemStorage(cfg config.ServerCfg) (*MemStorage, error) {
+func NewMemStorage(cfg *config.ServerCfg) (*MemStorage, error) {
 	return &MemStorage{
 		Gauge:   make(map[string]float64),
 		Counter: make(map[string]int64),
+		memLock: &sync.Mutex{},
 	}, nil
 }
 
@@ -65,7 +66,6 @@ func (m *MemStorage) GetMetric(mType, mName string) (string, error) {
 }
 
 func (m *MemStorage) GetAllMetrics() string {
-	fmt.Println(m)
 	html := "<h3>Gauge:</h3>"
 	for mName, mValue := range m.Gauge {
 		html += (mName + ":" + strconv.FormatFloat(mValue, 'f', -1, 64) + "<br>")
@@ -107,5 +107,4 @@ func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
 	m.memLock.Lock()
 	m.Gauge[mName] = vFloat64
 	m.memLock.Unlock()
-	fmt.Println("here's our repo: ", m)
 }

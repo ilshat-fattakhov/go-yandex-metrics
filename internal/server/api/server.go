@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"text/template"
 	"time"
 
@@ -36,14 +37,14 @@ type StorageCfg struct {
 	Restore         bool   `json:"restore"`
 }
 
-func NewServer(cfg config.ServerCfg) (*Server, error) {
-	lg := logger.InitLogger()
+type MemStorage struct {
+	Gauge   map[string]float64 `json:"gauge"`
+	Counter map[string]int64   `json:"counter"`
+	memLock *sync.Mutex
+}
 
-	store, err := storage.NewStore(cfg)
-	if err != nil {
-		lg.Info("got error creating storage")
-		return nil, fmt.Errorf("got error creating storage: %w", err)
-	}
+func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
+	lg := logger.InitLogger()
 
 	tpl, err := createTemplate()
 	if err != nil {

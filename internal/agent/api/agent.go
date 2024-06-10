@@ -26,7 +26,7 @@ type Agent struct {
 type MemStorage struct {
 	Gauge   map[string]float64 `json:"gauge"`
 	Counter map[string]int64   `json:"counter"`
-	memLock sync.Mutex
+	memLock *sync.Mutex
 }
 
 func NewAgent(cfg config.AgentCfg, store *MemStorage) *Agent {
@@ -62,5 +62,6 @@ func NewAgentMemStorage(cfg config.AgentCfg) (*MemStorage, error) {
 	return &MemStorage{
 		Gauge:   make(map[string]float64),
 		Counter: make(map[string]int64),
+		memLock: &sync.Mutex{},
 	}, nil
 }

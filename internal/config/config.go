@@ -24,7 +24,7 @@ type AgentCfg struct {
 	ReportInterval uint64 `json:"report_interval"`
 }
 
-func NewServerConfig() (*ServerCfg, error) {
+func NewServerConfig() (ServerCfg, error) {
 	var cfg ServerCfg
 	var storageCfg StorageCfg
 
@@ -55,7 +55,7 @@ func NewServerConfig() (*ServerCfg, error) {
 	if ok {
 		tmpStoreInterval, err := strconv.ParseUint(envStoreInterval, 10, 64)
 		if err != nil {
-			return &cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
+			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
 		}
 		storageCfg.StoreInterval = tmpStoreInterval
 	}
@@ -71,12 +71,12 @@ func NewServerConfig() (*ServerCfg, error) {
 	if ok {
 		boolValue, err := strconv.ParseBool(envRestore)
 		if err != nil {
-			return &cfg, fmt.Errorf("an error occured parsing bool value: %w", err)
+			return cfg, fmt.Errorf("an error occured parsing bool value: %w", err)
 		}
 		storageCfg.Restore = boolValue
 	}
 	cfg.StorageCfg = storageCfg
-	return &cfg, nil
+	return cfg, nil
 }
 
 func NewAgentConfig() (AgentCfg, error) {

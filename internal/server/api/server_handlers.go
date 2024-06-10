@@ -68,6 +68,8 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				lg.Info("error reading request body", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
 			}
 
 			w.Header().Set(ContentType, applicationJSON)

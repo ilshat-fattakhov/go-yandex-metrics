@@ -15,30 +15,27 @@ type FileStorage struct {
 	savePath string
 }
 
-func NewFileStorage(cfg config.ServerCfg) (Storage, error) {
+func NewFileStorage(cfg *config.ServerCfg) (*FileStorage, error) {
 	memStore, err := NewMemStorage(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error creating memory storage: %w", err)
 	}
 
+	fileStorage := &FileStorage{
+		MemStore: memStore,
+		savePath: cfg.StorageCfg.FileStoragePath,
+	}
+
 	if cfg.StorageCfg.Restore {
-		err := LoadMetrics(memStore, cfg.StorageCfg.FileStoragePath)
+		err := LoadMetrics(fileStorage, cfg.StorageCfg.FileStoragePath)
 		if err != nil {
 			return nil, fmt.Errorf("got error loading metrics from file: %w", err)
 		}
-		return &FileStorage{
-			MemStore: memStore,
-			savePath: cfg.StorageCfg.FileStoragePath,
-		}, nil
-	} else {
-		return &FileStorage{
-			MemStore: memStore,
-			savePath: cfg.StorageCfg.FileStoragePath,
-		}, nil
 	}
+	return fileStorage, nil
 }
 
-func LoadMetrics(s *MemStorage, filePath string) error {
+func LoadMetrics(f *FileStorage, filePath string) error {
 	lg := logger.InitLogger()
 
 	if _, err := os.Stat(filePath); err != nil {
@@ -53,16 +50,14 @@ func LoadMetrics(s *MemStorage, filePath string) error {
 		}
 	} else {
 		data, err := os.ReadFile(filePath)
-		fmt.Println(data)
 		if err != nil {
 			return fmt.Errorf("cannot read storage file: %w", err)
 		}
 
-		if err := json.Unmarshal(data, &s); err != nil {
+		if err := json.Unmarshal(data, f); err != nil {
 			// file is empty so far, return memory storage ???
 			return fmt.Errorf("cannot unmarshal storage file, file is probably empty: %w", err)
 		}
-		fmt.Println(s)
 		lg.Info("finished loading metrics")
 		return nil
 	}

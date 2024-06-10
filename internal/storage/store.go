@@ -14,7 +14,7 @@ type Storage interface {
 	GetAllMetrics() string
 }
 
-func NewStore(cfg config.ServerCfg) (Storage, error) {
+func NewStore(cfg *config.ServerCfg) (Storage, error) {
 	switch {
 	case cfg.StorageCfg.FileStoragePath != "":
 		store, err := NewFileStorage(cfg)
