@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -122,13 +124,16 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create a request: %w", err)
 	}
+	req.Close = true
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to do a request:  %w", err)
+		// server has not been started yet
+		// return fmt.Errorf("failed to do a request:  %w", err)
+		return nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -137,11 +142,13 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 
 	_, err = io.Copy(io.Discard, resp.Body)
 	if err != nil {
+		a.logger.Fatal("error copying response body: %w", zap.Error(err))
 		return fmt.Errorf("error copying response body: %w", err)
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
+		a.logger.Fatal("error closing response body: %w", zap.Error(err))
 		return fmt.Errorf("error closing response body: %w", err)
 	}
 

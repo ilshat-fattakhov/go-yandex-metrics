@@ -194,6 +194,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to marshal metric: %v", err))
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
@@ -201,6 +202,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 

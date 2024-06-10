@@ -32,6 +32,10 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create storage: %w", err)
 	}
+
+	lg.Info(fmt.Sprintf("agent config data: %v", cfg))
+	lg.Info(fmt.Sprintf("agent storage data: %v", store))
+
 	agent := api.NewAgent(cfg, store)
 
 	err = agent.Start()

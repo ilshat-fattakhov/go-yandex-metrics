@@ -27,6 +27,10 @@ func main() {
 	}
 
 	store, err := storage.NewStore(&cfg)
+	lg.Info(fmt.Sprintf("server config data: %v", cfg))
+	lg.Info(fmt.Sprintf("server storage data: %v", store))
+
+	fmt.Println(store)
 	if err != nil {
 		lg.Info("failed to create storage", zap.Error(err))
 		log.Panicf("failed to create storage %v", err)

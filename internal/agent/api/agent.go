@@ -37,8 +37,11 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) *Agent {
 	agt := &Agent{
 		logger: lg,
 		store:  store,
-		client: &http.Client{Timeout: time.Duration(1) * time.Second},
-		cfg:    cfg,
+		client: &http.Client{
+			Timeout:   time.Duration(1) * time.Second,
+			Transport: &http.Transport{},
+		},
+		cfg: cfg,
 	}
 	return agt
 }
@@ -50,8 +53,10 @@ func (a *Agent) Start() error {
 	for {
 		select {
 		case <-tickerSave.C:
+			a.logger.Info("saving metrics")
 			a.saveMetrics()
 		case <-tickerSend.C:
+			a.logger.Info("sending metrics")
 			err := a.sendMetrics()
 			if err != nil {
 				a.logger.Info(fmt.Sprintf("failed to send metrics: %v", err))
