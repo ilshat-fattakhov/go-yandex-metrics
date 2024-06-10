@@ -53,6 +53,8 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write([]byte(html))
 	if err != nil {
 		s.logger.Info(fmt.Sprintf("an error occured writing to browser: %v", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -147,6 +149,8 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 			_, err = w.Write([]byte(html))
 			if err != nil {
 				s.logger.Info(fmt.Sprintf("an error occured writing to browser: %v", err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 		}
 	}

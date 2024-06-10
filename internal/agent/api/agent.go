@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ type AgentCfg struct {
 type Agent struct {
 	logger *zap.Logger
 	store  *MemStorage
+	client *http.Client
 	cfg    config.AgentCfg
 }
 
@@ -33,9 +35,10 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) *Agent {
 	lg := logger.InitLogger()
 
 	agt := &Agent{
-		cfg:    cfg,
-		store:  store,
 		logger: lg,
+		store:  store,
+		client: &http.Client{Timeout: time.Duration(1) * time.Second},
+		cfg:    cfg,
 	}
 	return agt
 }

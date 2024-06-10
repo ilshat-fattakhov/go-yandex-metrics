@@ -16,12 +16,11 @@ func main() {
 	lg := logger.InitLogger()
 	defer func() {
 		if err := lg.Sync(); err != nil {
-			lg.Info(fmt.Sprintf("failed to sync logger: %v", err))
+			lg.Debug(fmt.Sprintf("failed to sync logger: %v", err))
 		}
 	}()
 
 	cfg, err := config.NewServerConfig()
-	lg.Info("server configuration settings" + fmt.Sprint(cfg))
 	if err != nil {
 		lg.Info("failed to create config", zap.Error(err))
 		log.Panicf("failed to create config: %v", err)

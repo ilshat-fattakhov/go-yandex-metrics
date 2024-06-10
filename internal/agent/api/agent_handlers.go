@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -10,7 +11,6 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
-	"time"
 )
 
 const (
@@ -66,17 +66,15 @@ func (a *Agent) saveMetrics() {
 }
 
 func (a *Agent) sendMetrics() error {
-	c := &http.Client{Timeout: time.Duration(1) * time.Second}
-
 	for n, v := range a.store.Gauge {
-		err := a.sendData(c, v, n, GaugeType, http.MethodPost)
+		err := a.sendData(v, n, GaugeType, http.MethodPost)
 		if err != nil {
 			return fmt.Errorf("an error occured sending gauge data: %w", err)
 		}
 	}
 
 	for n, v := range a.store.Counter {
-		err := a.sendData(c, v, n, CounterType, http.MethodPost)
+		err := a.sendData(v, n, CounterType, http.MethodPost)
 		if err != nil {
 			return fmt.Errorf("an error occured sending counter data: %w", err)
 		}
@@ -86,7 +84,7 @@ func (a *Agent) sendMetrics() error {
 	return nil
 }
 
-func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method string) error {
+func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	var metric = Metrics{}
 
 	switch mType {
@@ -95,14 +93,16 @@ func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method s
 		case float64:
 			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
 		default:
-			return nil
+			a.logger.Warn(GaugeType + " is not float64")
+			return errors.New(GaugeType + " is not float64")
 		}
 	case CounterType:
 		switch i := v.(type) {
 		case int64:
 			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
 		default:
-			return nil
+			a.logger.Warn(CounterType + " is not int64")
+			return errors.New(CounterType + " is not int64")
 		}
 	}
 
@@ -110,36 +110,44 @@ func (a *Agent) sendData(c *http.Client, v any, n string, mType string, method s
 	err := json.NewEncoder(&buf).Encode(metric)
 
 	if err != nil {
-		a.logger.Info(fmt.Sprintf("failed to JSON encode gauge metric: %v", err))
 		return fmt.Errorf("failed to JSON encode gauge metric: %w", err)
 	}
 
 	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
 	if err != nil {
-		a.logger.Info(fmt.Sprintf("failed to join path parts for gauge JSON POST URL: %v", err))
 		return fmt.Errorf("failed to join path parts for gauge JSON POST URL: %w", err)
 	}
 
 	req, err := http.NewRequest(method, sendURL, &buf)
 	if err != nil {
-		a.logger.Info(fmt.Sprintf("failed to create a request: %v", err))
 		return fmt.Errorf("failed to create a request: %w", err)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
-	//	req.Header.Set("Content-Length", strconv.Itoa(binary.Size(&buf)))
-	resp, _ := c.Do(req)
-	// если раскомментировать строки ниже, автотест не проходится
-	// с ошибкой "невозможно установить соединение с сервером"
-	// if err != nil {
-	//	a.logger.Info(fmt.Sprintf("failed to do a request: %v", err))
-	//	return fmt.Errorf("failed to do a request: %w", err)
-	//}
 
-	if resp != nil {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to do a request:  %w", err)
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP status code is not 200 OK: %w", err)
+	}
+
+	_, err = io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		return fmt.Errorf("error copying response body: %w", err)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		return fmt.Errorf("error closing response body: %w", err)
+	}
+
+	// if resp != nil {
+	//	_, _ = io.Copy(io.Discard, resp.Body)
+	//	_ = resp.Body.Close()
+	// }
 	return nil
 }

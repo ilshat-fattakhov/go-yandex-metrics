@@ -63,12 +63,12 @@ func (s *Server) Start(cfg config.ServerCfg) error {
 		Addr:    cfg.Host,
 		Handler: s.router,
 	}
+
 	saveData(s)
 
 	s.logger.Info("starting server")
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
-			s.logger.Info(fmt.Sprintf("HTTP server has encountered an error: %v", err))
 			return fmt.Errorf("HTTP server has encountered an errors: %w", err)
 		}
 	}
@@ -108,8 +108,7 @@ func saveData(s *Server) {
 			for range tickerStore.C {
 				err := storage.SaveMetrics(s.store, s.cfg.StorageCfg.FileStoragePath)
 				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to store metrics: %v", err))
-					log.Panicf("failed to store metrics: %v", err)
+					log.Fatal("failed to save metrics: %w", err)
 				}
 			}
 		}()
