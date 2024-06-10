@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"text/template"
 	"time"
 
@@ -35,12 +34,6 @@ type StorageCfg struct {
 	FileStoragePath string
 	StoreInterval   uint64 `json:"store_interval"`
 	Restore         bool   `json:"restore"`
-}
-
-type MemStorage struct {
-	Gauge   map[string]float64 `json:"gauge"`
-	Counter map[string]int64   `json:"counter"`
-	memLock *sync.Mutex
 }
 
 func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
