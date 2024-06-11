@@ -37,7 +37,10 @@ type StorageCfg struct {
 }
 
 func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
-	lg := logger.InitLogger()
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init logger: %w", err)
+	}
 
 	tpl, err := createTemplate()
 	if err != nil {

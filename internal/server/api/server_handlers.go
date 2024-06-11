@@ -69,7 +69,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 		if requestedJSON {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				lg.Info("error reading request body", zap.Error(err))
+				s.logger.Info("error reading request body", zap.Error(err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -80,16 +80,19 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 			err = json.Unmarshal(body, &m)
 			if err != nil {
+				s.logger.Info(fmt.Sprintf("failed to unmarshal body: %v", err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 
 			mValue, err := s.store.GetMetric(m.MType, m.ID)
 			if err != nil {
+				s.logger.Info(fmt.Sprintf("failed to get metric: %v", err))
 				w.WriteHeader(http.StatusNotFound)
 				return
 			} else {
 				if mValue == "" {
+					s.logger.Info(fmt.Sprintf("metric value is empty: %v", err))
 					w.WriteHeader(http.StatusNotFound)
 					return
 				}
@@ -120,15 +123,17 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to JSON encode gauge metric: %v", err))
-					w.WriteHeader(http.StatusBadRequest)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
+				return
 			}
 		} else {
 			mType := chi.URLParam(r, "mtype")
 			mName := chi.URLParam(r, "mname")
 			mValue, err := s.store.GetMetric(mType, mName)
 			if err != nil {
+				s.logger.Info(fmt.Sprintf("metric not found: %v", err))
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
@@ -140,9 +145,6 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set(ContentType, "text/html")
-			w.Header().Set("charset", "utf-8")
-			w.WriteHeader(http.StatusOK)
 
 			html := doc.String()
 
@@ -152,16 +154,20 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			w.Header().Set(ContentType, "text/html")
+			w.Header().Set("charset", "utf-8")
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 	}
 }
 
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.RequestURI == "/update/" && r.Method == http.MethodPost {
+		if r.RequestURI == "/update/" {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("aerror reading request body: %v", err))
+				s.logger.Info(fmt.Sprintf("error reading request body: %v", err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -172,7 +178,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 			err = json.Unmarshal(body, &m)
 			if err != nil {
-				lg.Info("Got error decoding JSON request")
+				s.logger.Info(fmt.Sprintf("error decoding JSON request: %v", err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -185,7 +191,11 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			switch mType {
 			case GaugeType:
 				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
-				storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat, w)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat); err != nil {
+					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 
 				w.WriteHeader(http.StatusOK)
 
@@ -208,7 +218,11 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 			case CounterType:
 				mValueInt = strconv.FormatInt(*m.Delta, 10)
-				storage.Storage.SaveMetric(s.store, mType, mName, mValueInt, w)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueInt); err != nil {
+					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.WriteHeader(http.StatusOK)
 
 				metric := Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
@@ -234,17 +248,16 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				return
 			}
 		} else {
-			if r.Method != http.MethodPost {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
-
 			mType := chi.URLParam(r, "mtype")
 			mName := chi.URLParam(r, "mname")
 			mValue := chi.URLParam(r, "mvalue")
 
 			if mType == GaugeType || mType == CounterType {
-				storage.Storage.SaveMetric(s.store, mType, mName, mValue, w)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValue); err != nil {
+					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.WriteHeader(http.StatusOK)
 			} else {
 				w.WriteHeader(http.StatusBadRequest)

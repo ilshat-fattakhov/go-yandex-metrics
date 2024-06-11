@@ -83,7 +83,12 @@ func (c *compressReader) Close() error {
 func GzipMiddleware() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
-			lg := logger.InitLogger()
+			lg, err := logger.InitLogger()
+			if err != nil {
+				lg.Info(fmt.Sprintf("failed to init logger: %v", err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 
 			ow := w
 			acceptEncoding := r.Header.Get("Accept-Encoding")

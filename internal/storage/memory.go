@@ -3,12 +3,10 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"sync"
 
 	"go-yandex-metrics/internal/config"
-	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 const (
@@ -30,32 +28,36 @@ func NewMemStorage(cfg *config.ServerCfg) (*MemStorage, error) {
 	}, nil
 }
 
-func (m *MemStorage) SaveMetric(mType, mName, mValue string, w http.ResponseWriter) {
+func (m *MemStorage) SaveMetric(mType, mName, mValue string) error {
 	switch mType {
 	case CounterType:
-		m.saveCounter(mName, mValue, w)
+		if err := m.saveCounter(mName, mValue); err != nil {
+			return fmt.Errorf("failed to save counter: %w", err)
+		}
 	case GaugeType:
-		m.saveGauge(mName, mValue, w)
+		if err := m.saveGauge(mName, mValue); err != nil {
+			return fmt.Errorf("failed to save gauge: %w", err)
+		}
 	default:
-		w.WriteHeader(http.StatusBadRequest)
+		return fmt.Errorf("wrong metric type: %v", mType)
 	}
+	return nil
 }
 
 func (m *MemStorage) GetMetric(mType, mName string) (string, error) {
 	var html string
-	var ErrItemNotFound = errors.New("item not found")
 
 	switch mType {
 	case GaugeType:
 		if mValue, ok := m.Gauge[mName]; !ok {
-			return "", ErrItemNotFound
+			return "", errors.New(GaugeType + " metric not found")
 		} else {
 			html = strconv.FormatFloat(mValue, 'f', -1, 64)
 			return html, nil
 		}
 	case CounterType:
 		if mValue, ok := m.Counter[mName]; !ok {
-			return "", ErrItemNotFound
+			return "", errors.New(CounterType + " metric not found")
 		} else {
 			html = strconv.FormatInt(mValue, 10)
 			return html, nil
@@ -77,34 +79,28 @@ func (m *MemStorage) GetAllMetrics() string {
 	return html
 }
 
-func (m *MemStorage) saveCounter(mName, mValue string, w http.ResponseWriter) {
-	lg := logger.InitLogger()
-
+func (m *MemStorage) saveCounter(mName, mValue string) error {
 	vFloat64, err := strconv.ParseFloat(mValue, 64)
 	if err != nil {
-		lg.Info(fmt.Sprintf("got error parsing float value for counter metric: %v", err))
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return fmt.Errorf("got error parsing float value for counter metric: %w", err)
 	}
+
 	vInt64 := int64(vFloat64)
 	m.memLock.Lock()
 	m.Counter[mName] += vInt64
 	m.memLock.Unlock()
+
+	return nil
 }
 
-func (m *MemStorage) saveGauge(mName, mValue string, w http.ResponseWriter) {
-	lg := logger.InitLogger()
-	lg.Info("saving gauge")
-
+func (m *MemStorage) saveGauge(mName, mValue string) error {
 	vFloat64, err := strconv.ParseFloat(mValue, 64)
-
 	if err != nil {
-		lg.Info(fmt.Sprintf("got error parsing float value for gauge metric: %v", err))
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return fmt.Errorf("got error parsing float value for gauge metric: %w", err)
 	}
 
 	m.memLock.Lock()
 	m.Gauge[mName] = vFloat64
 	m.memLock.Unlock()
+	return nil
 }

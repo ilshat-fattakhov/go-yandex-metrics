@@ -3,13 +3,12 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"net/http"
 
 	"go-yandex-metrics/internal/config"
 )
 
 type Storage interface {
-	SaveMetric(mType, mName, mValue string, w http.ResponseWriter)
+	SaveMetric(mType, mName, mValue string) error
 	GetMetric(mType, mName string) (string, error)
 	GetAllMetrics() string
 }

@@ -31,8 +31,11 @@ type MemStorage struct {
 	memLock *sync.Mutex
 }
 
-func NewAgent(cfg config.AgentCfg, store *MemStorage) *Agent {
-	lg := logger.InitLogger()
+func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init logger: %w", err)
+	}
 
 	agt := &Agent{
 		logger: lg,
@@ -43,7 +46,7 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) *Agent {
 		},
 		cfg: cfg,
 	}
-	return agt
+	return agt, nil
 }
 
 func (a *Agent) Start() error {

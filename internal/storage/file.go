@@ -3,7 +3,6 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 
 	"go-yandex-metrics/internal/config"
@@ -36,7 +35,10 @@ func NewFileStorage(cfg *config.ServerCfg) (*FileStorage, error) {
 }
 
 func LoadMetrics(f *FileStorage, filePath string) error {
-	lg := logger.InitLogger()
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return fmt.Errorf("failed to init logger: %w", err)
+	}
 
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
@@ -64,7 +66,10 @@ func LoadMetrics(f *FileStorage, filePath string) error {
 }
 
 func SaveMetrics(s Storage, filePath string) error {
-	lg := logger.InitLogger()
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return fmt.Errorf("failed to init logger: %w", err)
+	}
 
 	data, err := json.MarshalIndent(s, "", "   ")
 	if err != nil {
@@ -81,12 +86,19 @@ func SaveMetrics(s Storage, filePath string) error {
 	return nil
 }
 
-func (f *FileStorage) SaveMetric(mType, mName, mValue string, w http.ResponseWriter) {
-	f.MemStore.SaveMetric(mType, mName, mValue, w)
+func (f *FileStorage) SaveMetric(mType, mName, mValue string) error {
+	if err := f.MemStore.SaveMetric(mType, mName, mValue); err != nil {
+		return fmt.Errorf("cannot save metric: %w", err)
+	}
+	return nil
 }
 
 func (f *FileStorage) GetMetric(mType, mName string) (string, error) {
-	return f.MemStore.GetMetric(mType, mName)
+	val, err := f.MemStore.GetMetric(mType, mName)
+	if err != nil {
+		return "", fmt.Errorf("cannot get metric: %w", err)
+	}
+	return val, nil
 }
 
 func (f *FileStorage) GetAllMetrics() string {

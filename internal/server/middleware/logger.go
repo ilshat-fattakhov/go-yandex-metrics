@@ -2,8 +2,8 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func InitLogger() *zap.Logger {
+func InitLogger() (*zap.Logger, error) {
 	// logger, err := zap.NewProduction()
 
 	cfg := zap.NewProductionConfig()
@@ -20,10 +20,9 @@ func InitLogger() *zap.Logger {
 	}
 	logger, err := cfg.Build()
 	if err != nil {
-		log.Printf("Can't initialize zap logger: %v", err)
+		return nil, fmt.Errorf("can't initialize zap logger: %w", err)
 	}
-
-	return logger
+	return logger, nil
 }
 
 func Logger(lg *zap.Logger) func(next http.Handler) http.Handler {
