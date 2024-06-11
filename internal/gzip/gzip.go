@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	logger "go-yandex-metrics/internal/server/middleware"
+
+	"go.uber.org/zap"
 )
 
 type compressWriter struct {
@@ -85,7 +87,7 @@ func GzipMiddleware() func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			lg, err := logger.InitLogger()
 			if err != nil {
-				lg.Info(fmt.Sprintf("failed to init logger: %v", err))
+				lg.Info("failed to init logger:  %w", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -98,7 +100,7 @@ func GzipMiddleware() func(next http.Handler) http.Handler {
 				ow = cw
 				defer func() {
 					if err := cw.Close(); err != nil {
-						lg.Info(fmt.Sprintf("failed to close newCompressWriter: %v", err))
+						lg.Info("failed to close newCompressWriter: %w", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -110,14 +112,14 @@ func GzipMiddleware() func(next http.Handler) http.Handler {
 			if sendsGzip {
 				cr, err := newCompressReader(r.Body)
 				if err != nil {
-					lg.Info(fmt.Sprintf("failed to create newCompressReader: %v", err))
+					lg.Info("failed to create newCompressReader: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				r.Body = cr
 				defer func() {
 					if err := cr.Close(); err != nil {
-						lg.Info(fmt.Sprintf("failed to close newCompressReader: %v", err))
+						lg.Info("failed to close newCompressReader: %w", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}

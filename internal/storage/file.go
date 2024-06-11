@@ -15,13 +15,13 @@ type FileStorage struct {
 }
 
 func NewFileStorage(cfg *config.ServerCfg) (*FileStorage, error) {
-	memStore, err := NewMemStorage(cfg)
+	MemStore, err := NewMemStorage(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error creating memory storage: %w", err)
 	}
 
 	fileStorage := &FileStorage{
-		MemStore: memStore,
+		MemStore: MemStore,
 		savePath: cfg.StorageCfg.FileStoragePath,
 	}
 
@@ -35,11 +35,6 @@ func NewFileStorage(cfg *config.ServerCfg) (*FileStorage, error) {
 }
 
 func LoadMetrics(f *FileStorage, filePath string) error {
-	lg, err := logger.InitLogger()
-	if err != nil {
-		return fmt.Errorf("failed to init logger: %w", err)
-	}
-
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
 			_, err := os.Create(filePath)
@@ -57,10 +52,8 @@ func LoadMetrics(f *FileStorage, filePath string) error {
 		}
 
 		if err := json.Unmarshal(data, f); err != nil {
-			// file is empty so far, return memory storage ???
 			return fmt.Errorf("cannot unmarshal storage file, file is probably empty: %w", err)
 		}
-		lg.Info("finished loading metrics")
 		return nil
 	}
 }

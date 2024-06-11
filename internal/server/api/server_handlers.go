@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -24,6 +23,7 @@ const (
 const (
 	GaugeType   string = "gauge"
 	CounterType string = "counter"
+	gzipStr     string = "gzip"
 )
 
 type Metrics struct {
@@ -40,7 +40,7 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	var doc bytes.Buffer
 	err := t.Execute(&doc, allMetrics)
 	if err != nil {
-		s.logger.Info(fmt.Sprintf("an error occured processing template data: %v", err))
+		s.logger.Info("an error occured processing template data: %w", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -53,7 +53,7 @@ func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write([]byte(html))
 	if err != nil {
-		s.logger.Info(fmt.Sprintf("an error occured writing to browser: %v", err))
+		s.logger.Info("an error occured writing to browser: %w", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -68,7 +68,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 		}
 
 		contentEncoding := r.Header.Get("Accept-Encoding")
-		acceptsGzip := strings.Contains(contentEncoding, "gzip")
+		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
 
 		if requestedJSON {
 			body, err := io.ReadAll(r.Body)
@@ -82,19 +82,19 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 			err = json.Unmarshal(body, &m)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("failed to unmarshal body: %v", err))
+				s.logger.Info("failed to unmarshal body: %w", zap.Error(err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 
 			mValue, err := s.store.GetMetric(m.MType, m.ID)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("failed to get metric: %v", err))
+				s.logger.Info("failed to get metric: %w", zap.Error(err))
 				w.WriteHeader(http.StatusNotFound)
 				return
 			} else {
 				if mValue == "" {
-					s.logger.Info(fmt.Sprintf("metric value is empty: %v", err))
+					s.logger.Info("metric value is empty: %w", zap.Error(err))
 					w.WriteHeader(http.StatusNotFound)
 					return
 				}
@@ -105,7 +105,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				case GaugeType:
 					mValue, err := strconv.ParseFloat(mValue, 64)
 					if err != nil {
-						s.logger.Info(fmt.Sprintf("failed to convert string to float64 value: %v", err))
+						s.logger.Info("failed to convert string to float64 value: %w", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -113,7 +113,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				case CounterType:
 					mValue, err := strconv.ParseInt(mValue, 10, 64)
 					if err != nil {
-						s.logger.Info(fmt.Sprintf("failed to convert string to int64 value: %v", err))
+						s.logger.Info("failed to convert string to int64 value: %w", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -122,12 +122,12 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 				w.Header().Set(ContentType, applicationJSON)
 				if acceptsGzip {
-					w.Header().Set("Content-Encoding", "gzip")
+					w.Header().Set("Content-Encoding", gzipStr)
 				}
 
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to JSON encode gauge metric: %v", err))
+					s.logger.Info("failed to JSON encode gauge metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -140,7 +140,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 			mName := chi.URLParam(r, "mname")
 			mValue, err := s.store.GetMetric(mType, mName)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("metric not found: %v", err))
+				s.logger.Info("metric not found: %w", zap.Error(err))
 				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
@@ -148,7 +148,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 			var doc bytes.Buffer
 			err = t.Execute(&doc, mValue)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("an error occured processing template data: %v", err))
+				s.logger.Info("an error occured processing template data: %w", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -157,7 +157,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 			_, err = w.Write([]byte(html))
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("an error occured writing to browser: %v", err))
+				s.logger.Info("an error occured writing to browser: %w", zap.Error(err))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -172,12 +172,12 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		contentEncoding := r.Header.Get("Accept-Encoding")
-		acceptsGzip := strings.Contains(contentEncoding, "gzip")
+		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
 
 		if r.RequestURI == "/update/" {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("error reading request body: %v", err))
+				s.logger.Info("error reading request body: %w", zap.Error(err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -188,7 +188,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 			err = json.Unmarshal(body, &m)
 			if err != nil {
-				s.logger.Info(fmt.Sprintf("error decoding JSON request: %v", err))
+				s.logger.Info("error decoding JSON request: %w", zap.Error(err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -202,7 +202,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			case GaugeType:
 				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
 				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat); err != nil {
-					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
+					s.logger.Info("error saving metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -212,17 +212,17 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				var buf bytes.Buffer
 				err := json.NewEncoder(&buf).Encode(metric)
 				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
 				if acceptsGzip {
-					w.Header().Set("Content-Encoding", "gzip")
+					w.Header().Set("Content-Encoding", gzipStr)
 				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to write buffer to ResponseWriter: %v", err))
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -233,7 +233,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			case CounterType:
 				mValueInt = strconv.FormatInt(*m.Delta, 10)
 				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueInt); err != nil {
-					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
+					s.logger.Info("error saving metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -243,17 +243,17 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				var buf bytes.Buffer
 				err := json.NewEncoder(&buf).Encode(metric)
 				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
 				if acceptsGzip {
-					w.Header().Set("Content-Encoding", "gzip")
+					w.Header().Set("Content-Encoding", gzipStr)
 				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to write buffer to ResponseWriter: %v", err))
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -274,7 +274,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 
 			if mType == GaugeType || mType == CounterType {
 				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValue); err != nil {
-					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
+					s.logger.Info("error saving metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusBadRequest)
 					return
 				}

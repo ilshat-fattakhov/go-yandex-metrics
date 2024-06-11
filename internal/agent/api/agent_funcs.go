@@ -140,13 +140,13 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 
 	_, err = io.Copy(io.Discard, resp.Body)
 	if err != nil {
-		a.logger.Fatal("error copying response body: %w", zap.Error(err))
+		a.logger.Info("error copying response body: %w", zap.Error(err))
 		return fmt.Errorf("error copying response body: %w", err)
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		a.logger.Fatal("error closing response body: %w", zap.Error(err))
+		a.logger.Info("error closing response body: %w", zap.Error(err))
 		return fmt.Errorf("error closing response body: %w", err)
 	}
 
