@@ -25,10 +25,10 @@ const (
 )
 
 const (
-	GaugeType       string = "gauge"
-	CounterType     string = "counter"
-	gzipStr         string = "gzip"
-	contentEncoding string = "Content-Encoding"
+	GaugeType     string = "gauge"
+	CounterType   string = "counter"
+	gzipStr       string = "gzip"
+	contentEncStr string = "Content-Encoding"
 )
 
 type Metrics struct {
@@ -58,7 +58,7 @@ func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if acceptsGzip {
-		w.Header().Set(contentEncoding, gzipStr)
+		w.Header().Set(contentEncStr, gzipStr)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -100,7 +100,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 		contentEncoding := r.Header.Get("Accept-Encoding")
 		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
 
-		if requestedJSON {
+		if r.RequestURI == "/value/" {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				s.logger.Info("error reading request body", zap.Error(err))
@@ -150,20 +150,36 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 					metric = Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
 				}
 
-				w.Header().Set(ContentType, applicationJSON)
-				if acceptsGzip {
-					w.Header().Set(contentEncoding, gzipStr)
+				if requestedJSON {
+					w.Header().Set(ContentType, applicationJSON)
+				} else {
+					w.Header().Set(ContentType, "text/html")
 				}
+				w.Header().Set("charset", "utf-8")
 
-				err = json.NewEncoder(w).Encode(metric)
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
 				if err != nil {
-					s.logger.Info("failed to JSON encode gauge metric: %w", zap.Error(err))
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				w.WriteHeader(http.StatusOK)
 
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
 				return
+
 			}
 		} else {
 			mType := chi.URLParam(r, "mtype")
@@ -191,8 +207,15 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set(ContentType, "text/html")
+			if requestedJSON {
+				w.Header().Set(ContentType, applicationJSON)
+			} else {
+				w.Header().Set(ContentType, "text/html")
+			}
 			w.Header().Set("charset", "utf-8")
+			if acceptsGzip {
+				w.Header().Set(contentEncStr, gzipStr)
+			}
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -248,7 +271,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				}
 
 				if acceptsGzip {
-					w.Header().Set(contentEncoding, gzipStr)
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
@@ -279,7 +302,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				}
 
 				if acceptsGzip {
-					w.Header().Set(contentEncoding, gzipStr)
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
@@ -307,6 +330,9 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					s.logger.Info("error saving metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusBadRequest)
 					return
+				}
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 				w.WriteHeader(http.StatusOK)
 			} else {
