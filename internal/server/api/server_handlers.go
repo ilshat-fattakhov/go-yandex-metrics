@@ -255,7 +255,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 			if mType == GaugeType || mType == CounterType {
 				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValue); err != nil {
 					s.logger.Info(fmt.Sprintf("error saving metric: %v", mType))
-					w.WriteHeader(http.StatusInternalServerError)
+					w.WriteHeader(http.StatusBadRequest)
 					return
 				}
 				w.WriteHeader(http.StatusOK)
