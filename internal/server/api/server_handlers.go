@@ -41,35 +41,26 @@ type Metrics struct {
 func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
 	contentEncoding := r.Header.Get("Accept-Encoding")
 	acceptsGzip := strings.Contains(contentEncoding, gzipStr)
-	// psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-	// "password=%s dbname=%s sslmode=disable",
-	// dbHost, dbPort, dbUser, dbPassword, dbName)
-	_, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
 
+	_, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+	defer cancel()
+	fmt.Println(s.cfg)
 	db, err := sql.Open("pgx", s.cfg.StorageCfg.DatabaseDSN)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		s.logger.Info("could not connect to database", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if err := db.Ping(); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		s.logger.Info("unable to reach database", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	_, err = db.Query("CREATE TABLE IF NOT EXISTS birds (		id SERIAL PRIMARY KEY,		bird VARCHAR(256),		description VARCHAR(1024)  );")
-	if err != nil {
-		s.logger.Info(fmt.Sprintf("an error occured creating table birds: %v", err))
-	}
 	if acceptsGzip {
-		w.Header().Set("Content-Encoding", gzipStr)
+		w.Header().Set(contentEncoding, gzipStr)
 	}
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write([]byte("Welcome!"))
-
-	// the above code is a working SQL code as it seems
 }
 
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {

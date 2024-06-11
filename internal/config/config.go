@@ -14,9 +14,9 @@ type ServerCfg struct {
 
 type StorageCfg struct {
 	FileStoragePath string
+	DatabaseDSN     string
 	StoreInterval   uint64 `json:"store_interval"`
 	Restore         bool   `json:"restore"`
-	DatabaseDSN     string
 }
 
 type AgentCfg struct {
@@ -34,7 +34,7 @@ func NewServerConfig() (ServerCfg, error) {
 	const defaultFileStoragePath = "/tmp/metrics-db.json" // пустое значение отключает функцию записи на диск
 	const defaultRestore = true
 	const defaultDatabaseDSN = "postgres://postgres:go-yandex-metrics@localhost:5432/metrics"
-	//	const defaultDatabaseDSN = "postgres://postgres:go-yandex-metrics@localhost:5432/videos"
+	// const defaultDatabaseDSN = "postgres://postgres:xxxxxx@localhost:5432/metrics"
 
 	var flagRunAddr string
 	var flagStoreInterval uint64
