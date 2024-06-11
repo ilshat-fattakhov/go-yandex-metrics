@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -66,6 +67,9 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 			requestedJSON = true
 		}
 
+		contentEncoding := r.Header.Get("Accept-Encoding")
+		acceptsGzip := strings.Contains(contentEncoding, "gzip")
+
 		if requestedJSON {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -73,8 +77,6 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-
-			w.Header().Set(ContentType, applicationJSON)
 
 			var m Metrics
 
@@ -118,7 +120,10 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 					metric = Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
 				}
 
-				w.WriteHeader(http.StatusOK)
+				w.Header().Set(ContentType, applicationJSON)
+				if acceptsGzip {
+					w.Header().Set("Content-Encoding", "gzip")
+				}
 
 				err = json.NewEncoder(w).Encode(metric)
 				if err != nil {
@@ -126,6 +131,8 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
+				w.WriteHeader(http.StatusOK)
+
 				return
 			}
 		} else {
@@ -197,25 +204,26 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					return
 				}
 
-				w.WriteHeader(http.StatusOK)
-
 				metric := Metrics{ID: mName, MType: GaugeType, Value: m.Value}
 
-				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
-				if err != nil {
-					s.logger.Info(fmt.Sprintf("failed to marshal metric: %v", err))
-					w.WriteHeader(http.StatusInternalServerError)
-					return
-				}
-				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
-
-				err = json.NewEncoder(w).Encode(metric)
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info(fmt.Sprintf("failed to write buffer to ResponseWriter: %v", err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
+				return
 			case CounterType:
 				mValueInt = strconv.FormatInt(*m.Delta, 10)
 				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueInt); err != nil {

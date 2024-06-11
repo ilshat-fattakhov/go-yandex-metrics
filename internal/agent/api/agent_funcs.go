@@ -150,9 +150,5 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		return fmt.Errorf("error closing response body: %w", err)
 	}
 
-	// if resp != nil {
-	//	_, _ = io.Copy(io.Discard, resp.Body)
-	//	_ = resp.Body.Close()
-	// }
 	return nil
 }
