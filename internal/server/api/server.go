@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
@@ -87,6 +88,8 @@ func (s *Server) routes() {
 		r.Use(gzip.GzipMiddleware())
 
 		r.Get("/", s.IndexHandler)
+		r.Get("/ping", s.PingHandler)
+
 		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
 		r.Post("/value/", s.GetHandler(lg))
 

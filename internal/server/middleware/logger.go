@@ -12,7 +12,13 @@ import (
 )
 
 func InitLogger() (*zap.Logger, error) {
-	logger, err := zap.NewProduction()
+	// logger, err := zap.NewProduction()
+	cfg := zap.NewProductionConfig()
+	cfg.OutputPaths = []string{
+		"/tmp/metrics.log",
+	}
+
+	logger, err := cfg.Build()
 	if err != nil {
 		return nil, fmt.Errorf("can't initialize zap logger: %w", err)
 	}
