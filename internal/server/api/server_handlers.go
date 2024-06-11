@@ -171,6 +171,9 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		contentEncoding := r.Header.Get("Accept-Encoding")
+		acceptsGzip := strings.Contains(contentEncoding, "gzip")
+
 		if r.RequestURI == "/update/" {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -214,6 +217,9 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					return
 				}
 
+				if acceptsGzip {
+					w.Header().Set("Content-Encoding", "gzip")
+				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to write buffer to ResponseWriter: %v", err))
@@ -231,24 +237,30 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				w.WriteHeader(http.StatusOK)
 
 				metric := Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
 
-				metricJSON, err := json.Marshal(metric) // metricJSON is of type []byte
-				if err != nil {
-					s.logger.Info("got error marshalling metrics to JSON")
-					w.WriteHeader(http.StatusInternalServerError)
-					return
-				}
-				w.Header().Set("Content-Length", bytes.NewBuffer(metricJSON).String())
-
-				err = json.NewEncoder(w).Encode(metric)
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
 				if err != nil {
 					s.logger.Info(fmt.Sprintf("failed to JSON encode metric: %v", err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
+
+				if acceptsGzip {
+					w.Header().Set("Content-Encoding", "gzip")
+				}
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info(fmt.Sprintf("failed to write buffer to ResponseWriter: %v", err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
+				return
 
 			default:
 				lg.Info("wrong metric type - neither gauge nor counter")
