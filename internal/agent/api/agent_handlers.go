@@ -131,9 +131,7 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		// server has not been started yet
-		// return fmt.Errorf("failed to do a request:  %w", err)
-		return nil
+		return fmt.Errorf("failed to do a request, server is probably down:  %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

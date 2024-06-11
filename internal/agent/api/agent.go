@@ -53,14 +53,11 @@ func (a *Agent) Start() error {
 	for {
 		select {
 		case <-tickerSave.C:
-			a.logger.Info("saving metrics")
 			a.saveMetrics()
 		case <-tickerSend.C:
-			a.logger.Info("sending metrics")
 			err := a.sendMetrics()
 			if err != nil {
 				a.logger.Info(fmt.Sprintf("failed to send metrics: %v", err))
-				return fmt.Errorf("failed to send metrics: %w", err)
 			}
 		}
 	}
