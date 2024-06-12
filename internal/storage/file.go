@@ -94,6 +94,10 @@ func (f *FileStorage) GetMetric(mType, mName string) (string, error) {
 	return val, nil
 }
 
-func (f *FileStorage) GetAllMetrics() string {
-	return f.MemStore.GetAllMetrics()
+func (f *FileStorage) GetAllMetrics() (string, error) {
+	metrics, err := f.MemStore.GetAllMetrics()
+	if err != nil {
+		return "", fmt.Errorf("an error occured getting a list of metricsc: %w", err)
+	}
+	return metrics, nil
 }
