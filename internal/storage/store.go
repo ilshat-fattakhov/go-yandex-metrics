@@ -15,6 +15,12 @@ type Storage interface {
 
 func NewStore(cfg *config.ServerCfg) (Storage, error) {
 	switch {
+	case cfg.StorageCfg.DatabaseDSN != "":
+		store, err := NewDBStorage(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("error creating db storage: %w", err)
+		}
+		return store, nil
 	case cfg.StorageCfg.FileStoragePath != "":
 		store, err := NewFileStorage(cfg)
 		if err != nil {
@@ -27,6 +33,7 @@ func NewStore(cfg *config.ServerCfg) (Storage, error) {
 			return nil, fmt.Errorf("error creating memory storage: %w", err)
 		}
 		return store, nil
+
 	default:
 		return nil, errors.New("error creating storage")
 	}
