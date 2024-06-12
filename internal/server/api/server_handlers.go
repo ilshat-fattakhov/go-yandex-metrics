@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -44,7 +43,6 @@ func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 	defer cancel()
-	fmt.Println(s.cfg)
 	db, err := sql.Open("pgx", s.cfg.StorageCfg.DatabaseDSN)
 	if err != nil {
 		s.logger.Info("could not connect to database", zap.Error(err))
@@ -179,7 +177,6 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 				w.WriteHeader(http.StatusOK)
 				return
-
 			}
 		} else {
 			mType := chi.URLParam(r, "mtype")
