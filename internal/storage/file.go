@@ -35,6 +35,7 @@ func NewFileStorage(cfg *config.ServerCfg) (*FileStorage, error) {
 }
 
 func LoadMetrics(f *FileStorage, filePath string) error {
+	fmt.Println("Loading from file " + filePath)
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
 			_, err := os.Create(filePath)

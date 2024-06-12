@@ -1,12 +1,9 @@
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"go-yandex-metrics/internal/config"
-	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 type DBStorage struct {
@@ -29,47 +26,10 @@ func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
 }
 
 func LoadMetricsDB(f *DBStorage, filePath string) error {
-	if _, err := os.Stat(filePath); err != nil {
-		if os.IsNotExist(err) {
-			_, err := os.Create(filePath)
-			if err != nil {
-				return fmt.Errorf("error creating storage file: %w", err)
-			}
-			return nil
-		} else {
-			return fmt.Errorf("unexpected error while creating storage file: %w", err)
-		}
-	} else {
-		data, err := os.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("cannot read storage file: %w", err)
-		}
-
-		if err := json.Unmarshal(data, f); err != nil {
-			return fmt.Errorf("cannot unmarshal storage file, file is probably empty: %w", err)
-		}
-		return nil
-	}
+	return nil
 }
 
 func SaveMetricsDB(s Storage, filePath string) error {
-	lg, err := logger.InitLogger()
-	if err != nil {
-		return fmt.Errorf("failed to init logger: %w", err)
-	}
-
-	data, err := json.MarshalIndent(s, "", "   ")
-	if err != nil {
-		lg.Info("cannot marshal storage")
-		return fmt.Errorf("cannot marshal storage: %w", err)
-	}
-
-	err = os.WriteFile(filePath, data, 0o600)
-	if err != nil {
-		lg.Info("cannot save storage to file")
-		return fmt.Errorf("cannot save storage to file: %w", err)
-	}
-
 	return nil
 }
 
