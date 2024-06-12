@@ -10,7 +10,7 @@ import (
 type Storage interface {
 	SaveMetric(mType, mName, mValue string) error
 	GetMetric(mType, mName string) (string, error)
-	GetAllMetrics() string
+	GetAllMetrics() (string, error)
 }
 
 func NewStore(cfg *config.ServerCfg) (Storage, error) {

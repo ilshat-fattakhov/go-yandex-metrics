@@ -16,19 +16,27 @@ type DBStorage struct {
 	db *sql.DB
 }
 
-const CreateGaugeTableSQL = `
+const (
+	CreateGaugeTableSQL = `
 CREATE TABLE IF NOT EXISTS gaugemetrics (
 	id SERIAL PRIMARY KEY,
-	name VARCHAR (25) UNIQUE NOT NULL,
-	value DOUBLE PRECISION NOT NULL
+	metricName VARCHAR (25) UNIQUE NOT NULL,
+	metricValue DOUBLE PRECISION NOT NULL
 )`
 
-const CreateCounterTableSQL = `
+	CreateCounterTableSQL = `
 CREATE TABLE IF NOT EXISTS countermetrics (
 	id SERIAL PRIMARY KEY,
-	name VARCHAR (25) UNIQUE NOT NULL,
-	value INTEGER NOT NULL
+	metricName VARCHAR (25) UNIQUE NOT NULL,
+	metricValue INTEGER NOT NULL
 )`
+	failedToInitLogger = "failed to init logger"
+)
+
+type Metric struct {
+	metricName  string
+	metricValue string
+}
 
 func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
 	db, err := sql.Open("pgx", cfg.StorageCfg.DatabaseDSN)
@@ -65,17 +73,17 @@ func SaveMetricsDB(s Storage, filePath string) error {
 func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
 	lg, err := logger.InitLogger()
 	if err != nil {
-		return fmt.Errorf("failed to init logger: %w", err)
+		return fmt.Errorf(failedToInitLogger+": %w", err)
 	}
 	sqlInsert := ""
 
 	switch mType {
 	case CounterType:
-		sqlInsert = "INSERT INTO countermetrics (name, value) VALUES ($1, $2)" +
-			"ON CONFLICT (name) DO UPDATE SET value = $3"
+		sqlInsert = "INSERT INTO countermetrics (metricName, metricValue) VALUES ($1, $2)" +
+			"ON CONFLICT (metricName) DO UPDATE SET metricValue = $3"
 	case GaugeType:
-		sqlInsert = "INSERT INTO gaugemetrics (name, value) VALUES ($1, $2)" +
-			"ON CONFLICT (name) DO UPDATE SET value = $3"
+		sqlInsert = "INSERT INTO gaugemetrics (metricName, metricValue) VALUES ($1, $2)" +
+			"ON CONFLICT (metricName) DO UPDATE SET metricValue = $3"
 	}
 
 	ctx := context.Background()
@@ -101,16 +109,16 @@ func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
 func (d *DBStorage) GetMetric(mType, mName string) (string, error) {
 	lg, err := logger.InitLogger()
 	if err != nil {
-		return "", fmt.Errorf("failed to init logger: %w", err)
+		return "", fmt.Errorf(failedToInitLogger+": %w", err)
 	}
 
 	sqlSelect := ""
 
 	switch mType {
 	case CounterType:
-		sqlSelect = "SELECT value FROM countermetrics WHERE name=$1"
+		sqlSelect = "SELECT metricValue FROM countermetrics WHERE metricName=$1"
 	case GaugeType:
-		sqlSelect = "SELECT value FROM gaugemetrics WHERE name=$1"
+		sqlSelect = "SELECT metricValue FROM gaugemetrics WHERE metricName=$1"
 	}
 
 	ctx := context.Background()
@@ -126,22 +134,94 @@ func (d *DBStorage) GetMetric(mType, mName string) (string, error) {
 
 	row := stmt.QueryRowContext(ctx, mName)
 	if mType == GaugeType {
-		var value float64
-		err := row.Scan(&value)
+		var metricValue float64
+		err := row.Scan(&metricValue)
 		if err != nil {
 			return "", fmt.Errorf("cannot get gauge metric: %w", err)
 		}
-		return strconv.FormatFloat(value, 'f', -1, 64), nil
+		return strconv.FormatFloat(metricValue, 'f', -1, 64), nil
 	} else {
-		var value int64
-		err := row.Scan(&value)
+		var metricValue int64
+		err := row.Scan(&metricValue)
 		if err != nil {
 			return "", fmt.Errorf("cannot get counter metric: %w", err)
 		}
-		return strconv.FormatInt(value, 10), nil
+		return strconv.FormatInt(metricValue, 10), nil
 	}
 }
 
-func (d *DBStorage) GetAllMetrics() string {
-	return ""
+func (d *DBStorage) GetAllMetrics() (string, error) {
+	html := "<h3>Gaugesa:</h3>"
+	gaugeMetrics, err := d.getMetrics(GaugeType)
+	if err != nil {
+		return "", fmt.Errorf("error getting gauge metrics: %w", err)
+	}
+	html += gaugeMetrics
+
+	html += "<h3>Countersa:</h3>"
+	counterMetrics, err := d.getMetrics(CounterType)
+	if err != nil {
+		return "", fmt.Errorf("error getting counter metrics: %w", err)
+	}
+	html += counterMetrics
+
+	return html, nil
+}
+
+func (d *DBStorage) getMetrics(mType string) (string, error) {
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return "", fmt.Errorf(failedToInitLogger+": %w", err)
+	}
+	sqlSelect := ""
+
+	switch mType {
+	case CounterType:
+		sqlSelect = "SELECT metricName, metricValue FROM countermetrics"
+	case GaugeType:
+		sqlSelect = "SELECT metricName, metricValue FROM gaugemetrics"
+	}
+
+	ctx := context.Background()
+	rows, err := d.db.QueryContext(ctx, sqlSelect)
+	if err != nil {
+		return "", fmt.Errorf("error running sql query: %w", err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			lg.Error("error running sql query: %w", zap.Error(err))
+		}
+	}()
+
+	metrics := make([]Metric, 0)
+
+	for rows.Next() {
+		var m Metric
+		if err != nil {
+			return "", fmt.Errorf("cannot scan row: %w", err)
+		}
+		if mType == GaugeType {
+			err = rows.Scan(&m.metricName, &m.metricValue)
+			if err != nil {
+				return "", fmt.Errorf("cannot get gauge metric: %w", err)
+			}
+		} else {
+			err = rows.Scan(&m.metricName, &m.metricValue)
+			if err != nil {
+				return "", fmt.Errorf("cannot get counter metric: %w", err)
+			}
+		}
+		metrics = append(metrics, m)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return "", fmt.Errorf("error fetching rows from the db: %w", err)
+	}
+	html := ""
+	for _, v := range metrics {
+		html += v.metricName + " : " + v.metricValue + "<br>"
+	}
+
+	return html, nil
 }
