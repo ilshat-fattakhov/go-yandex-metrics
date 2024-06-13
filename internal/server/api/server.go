@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"text/template"
 	"time"
 
@@ -84,7 +85,7 @@ func (s *Server) routes() {
 
 	s.router.Route("/", func(r chi.Router) {
 		r.Use(logger.Logger(lg))
-		r.Use(gzip.GzipMiddleware())
+		r.Use(s.GzipMiddleware())
 
 		r.Get("/", s.IndexHandler)
 		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
@@ -115,5 +116,48 @@ func saveData(s *Server) {
 				}
 			}
 		}()
+	}
+}
+
+func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			ow := w
+			acceptEncoding := r.Header.Get("Accept-Encoding")
+			supportsGzip := strings.Contains(acceptEncoding, "gzip")
+			if supportsGzip {
+				cw := gzip.NewCompressWriter(w)
+				ow = cw
+				defer func() {
+					if err := cw.Close(); err != nil {
+						s.logger.Info("failed to close newCompressWriter: %w", zap.Error(err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}()
+			}
+
+			contentEncoding := r.Header.Get("Content-Encoding")
+			sendsGzip := strings.Contains(contentEncoding, "gzip")
+			if sendsGzip {
+				cr, err := gzip.NewCompressReader(r.Body)
+				if err != nil {
+					s.logger.Info("failed to create newCompressReader: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				r.Body = cr
+				defer func() {
+					if err := cr.Close(); err != nil {
+						s.logger.Info("failed to close newCompressReader: %w", zap.Error(err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}()
+			}
+
+			next.ServeHTTP(ow, r)
+		}
+		return http.HandlerFunc(fn)
 	}
 }

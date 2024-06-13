@@ -21,9 +21,10 @@ const (
 )
 
 const (
-	GaugeType   string = "gauge"
-	CounterType string = "counter"
-	gzipStr     string = "gzip"
+	GaugeType     string = "gauge"
+	CounterType   string = "counter"
+	gzipStr       string = "gzip"
+	contentEncStr string = "Content-Encoding"
 )
 
 type Metrics struct {
@@ -122,7 +123,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 				w.Header().Set(ContentType, applicationJSON)
 				if acceptsGzip {
-					w.Header().Set("Content-Encoding", gzipStr)
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 
 				err = json.NewEncoder(w).Encode(metric)
@@ -218,7 +219,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				}
 
 				if acceptsGzip {
-					w.Header().Set("Content-Encoding", gzipStr)
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
@@ -249,7 +250,7 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				}
 
 				if acceptsGzip {
-					w.Header().Set("Content-Encoding", gzipStr)
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 				_, err = w.Write(buf.Bytes())
 				if err != nil {
