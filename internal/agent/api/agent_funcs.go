@@ -85,8 +85,93 @@ func (a *Agent) sendMetrics() error {
 	a.store.Counter["PollCount"] = 0
 	return nil
 }
+func (a *Agent) sendMetricsBatch() error {
+	for n, v := range a.store.Gauge {
+		// create a batch множество метрик в формате: []Metrics (списка метрик).
+		err := a.sendData(v, n, GaugeType, http.MethodPost)
+		if err != nil {
+			return fmt.Errorf("an error occured sending gauge data: %w", err)
+		}
+	}
 
+	for n, v := range a.store.Counter {
+		err := a.sendData(v, n, CounterType, http.MethodPost)
+		if err != nil {
+			return fmt.Errorf("an error occured sending counter data: %w", err)
+		}
+	}
+
+	a.store.Counter["PollCount"] = 0
+	return nil
+}
 func (a *Agent) sendData(v any, n string, mType string, method string) error {
+	var metric = Metrics{}
+
+	switch mType {
+	case GaugeType:
+		switch i := v.(type) {
+		case float64:
+			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
+		default:
+			a.logger.Warn(GaugeType + " is not float64")
+			return errors.New(GaugeType + " is not float64")
+		}
+	case CounterType:
+		switch i := v.(type) {
+		case int64:
+			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
+		default:
+			a.logger.Warn(CounterType + " is not int64")
+			return errors.New(CounterType + " is not int64")
+		}
+	}
+
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(metric)
+
+	if err != nil {
+		return fmt.Errorf("failed to JSON encode gauge metric: %w", err)
+	}
+
+	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
+	if err != nil {
+		return fmt.Errorf("failed to join path parts for gauge JSON POST URL: %w", err)
+	}
+
+	req, err := http.NewRequest(method, sendURL, &buf)
+	if err != nil {
+		return fmt.Errorf("failed to create a request: %w", err)
+	}
+	req.Close = true
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to do a request, server is probably down:  %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP status code is not 200 OK: %w", err)
+	}
+
+	_, err = io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		a.logger.Info("error copying response body: %w", zap.Error(err))
+		return fmt.Errorf("error copying response body: %w", err)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		a.logger.Info("error closing response body: %w", zap.Error(err))
+		return fmt.Errorf("error closing response body: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Agent) sendBatch(v any, n string, mType string, method string) error {
 	var metric = Metrics{}
 
 	switch mType {

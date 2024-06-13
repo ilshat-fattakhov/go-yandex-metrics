@@ -360,3 +360,123 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 		}
 	}
 }
+
+func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contentEncoding := r.Header.Get(acceptEncoding)
+		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
+
+		if r.RequestURI == "/update/" {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				s.logger.Info("error reading request body: %w", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			w.Header().Set(ContentType, applicationJSON)
+
+			var m Metrics
+
+			err = json.Unmarshal(body, &m)
+			if err != nil {
+				s.logger.Info("error decoding JSON request: %w", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			mType := m.MType
+			mName := m.ID
+			var mValueFloat string
+			var mValueInt string
+
+			switch mType {
+			case GaugeType:
+				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat); err != nil {
+					s.logger.Info("error saving metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				metric := Metrics{ID: mName, MType: GaugeType, Value: m.Value}
+
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
+				if err != nil {
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
+				return
+			case CounterType:
+				mValueInt = strconv.FormatInt(*m.Delta, 10)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueInt); err != nil {
+					s.logger.Info("error saving metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				metric := Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
+
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
+				if err != nil {
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
+				return
+
+			default:
+				lg.Info("wrong metric type - neither gauge nor counter")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		} else {
+			mType := chi.URLParam(r, "mtype")
+			mName := chi.URLParam(r, "mname")
+			mValue := chi.URLParam(r, "mvalue")
+
+			if mType == GaugeType || mType == CounterType {
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValue); err != nil {
+					s.logger.Info("error saving metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+				w.WriteHeader(http.StatusOK)
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		}
+	}
+}
