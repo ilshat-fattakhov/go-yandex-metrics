@@ -62,6 +62,10 @@ func (a *Agent) Start() error {
 			if err != nil {
 				a.logger.Error("failed to send metrics: %w", zap.Error(err))
 			}
+			err = a.sendMetricsBatch()
+			if err != nil {
+				a.logger.Error("failed to send metrics in batch: %w", zap.Error(err))
+			}
 		}
 	}
 }

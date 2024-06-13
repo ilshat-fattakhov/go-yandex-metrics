@@ -95,6 +95,7 @@ func (s *Server) routes() {
 		r.Post("/value/", s.GetHandler(lg))
 
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler(lg))
+		r.Post("/updates/", s.UpdatesHandler(lg))
 		r.Post("/update/", s.UpdateHandler(lg))
 	})
 }
