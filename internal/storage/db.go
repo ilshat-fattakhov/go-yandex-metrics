@@ -80,7 +80,7 @@ func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
 	switch mType {
 	case CounterType:
 		sqlInsert = "INSERT INTO countermetrics (metricName, metricValue) VALUES ($1, $2)" +
-			"ON CONFLICT (metricName) DO UPDATE SET metricValue = $3"
+			"ON CONFLICT (metricName) DO UPDATE SET metricValue = countermetrics.metricValue + $3"
 	case GaugeType:
 		sqlInsert = "INSERT INTO gaugemetrics (metricName, metricValue) VALUES ($1, $2)" +
 			"ON CONFLICT (metricName) DO UPDATE SET metricValue = $3"
@@ -89,7 +89,7 @@ func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
 	ctx := context.Background()
 	stmt, err := d.db.PrepareContext(ctx, sqlInsert)
 	if err != nil {
-		return fmt.Errorf("cannot prepare SQL statement: %w", err)
+		return fmt.Errorf("cannot prepare SQL statement while saving metric: %w", err)
 	}
 
 	_, err = stmt.ExecContext(ctx, mName, mValue, mValue)
@@ -124,7 +124,7 @@ func (d *DBStorage) GetMetric(mType, mName string) (string, error) {
 	ctx := context.Background()
 	stmt, err := d.db.PrepareContext(ctx, sqlSelect)
 	if err != nil {
-		return "", fmt.Errorf("cannot prepare SQL statement: %w", err)
+		return "", fmt.Errorf("cannot prepare SQL statement while getting metric: %w", err)
 	}
 	defer func() {
 		if err := stmt.Close(); err != nil {
@@ -151,14 +151,14 @@ func (d *DBStorage) GetMetric(mType, mName string) (string, error) {
 }
 
 func (d *DBStorage) GetAllMetrics() (string, error) {
-	html := "<h3>Gaugesa:</h3>"
+	html := "<h3>Gauge:</h3>"
 	gaugeMetrics, err := d.getMetrics(GaugeType)
 	if err != nil {
 		return "", fmt.Errorf("error getting gauge metrics: %w", err)
 	}
 	html += gaugeMetrics
 
-	html += "<h3>Countersa:</h3>"
+	html += "<h3>Counter:</h3>"
 	counterMetrics, err := d.getMetrics(CounterType)
 	if err != nil {
 		return "", fmt.Errorf("error getting counter metrics: %w", err)
