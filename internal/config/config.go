@@ -9,6 +9,7 @@ import (
 
 type ServerCfg struct {
 	Host       string `json:"host"`
+	HashKey    string
 	StorageCfg StorageCfg
 }
 
@@ -21,8 +22,10 @@ type StorageCfg struct {
 
 type AgentCfg struct {
 	Host           string `json:"host"`
+	HashKey        string
 	PollInterval   uint64 `json:"poll_interval"`
 	ReportInterval uint64 `json:"report_interval"`
+	RateLimit      uint64
 }
 
 func NewServerConfig() (ServerCfg, error) {
@@ -34,12 +37,14 @@ func NewServerConfig() (ServerCfg, error) {
 	const defaultFileStoragePath = "/tmp/metrics-db.json" // пустое значение отключает функцию записи на диск
 	const defaultRestore = true
 	const defaultDatabaseDSN = ""
+	const defaultHashKey = ""
 
 	var flagRunAddr string
 	var flagStoreInterval uint64
 	var flagFileStoragePath string
 	var flagRestore bool
 	var flagDatabaseDSN string
+	var flagHashKey string
 
 	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
 	flag.BoolVar(&flagRestore, "r", defaultRestore, "restore data from file at server start")
@@ -47,6 +52,7 @@ func NewServerConfig() (ServerCfg, error) {
 
 	flag.StringVar(&flagFileStoragePath, "f", defaultFileStoragePath, "file storage path")
 	flag.StringVar(&flagDatabaseDSN, "d", defaultDatabaseDSN, "DB connection string")
+	flag.StringVar(&flagHashKey, "k", defaultHashKey, "hash key")
 
 	flag.Parse()
 
@@ -82,6 +88,12 @@ func NewServerConfig() (ServerCfg, error) {
 		storageCfg.DatabaseDSN = envflagDatabaseDSN
 	}
 
+	cfg.HashKey = flagHashKey
+	envHashKey, ok := os.LookupEnv("KEY")
+	if ok {
+		cfg.HashKey = envHashKey
+	}
+
 	storageCfg.FileStoragePath = flagFileStoragePath
 	envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH")
 	if ok {
@@ -98,17 +110,21 @@ func NewAgentConfig() (AgentCfg, error) {
 	const defaultRunAddr = "localhost:8080"
 	const defaultReportInterval uint64 = 10
 	const defaultPollInterval uint64 = 2
+	const defaultHashKey = ""
+	const defaultRateLimit = 1
 
 	var flagRunAddr string
 	var flagReportInterval uint64
 	var flagPollInterval uint64
-
-	var ReportInterval uint64
-	var PollInterval uint64
+	var flagHashKey string
+	var flagRateLimit uint64
 
 	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
 	flag.Uint64Var(&flagPollInterval, "p", defaultPollInterval, "data poll interval")
 	flag.Uint64Var(&flagReportInterval, "r", defaultReportInterval, "data report interval")
+	flag.StringVar(&flagHashKey, "k", defaultHashKey, "hash key")
+	flag.Uint64Var(&flagRateLimit, "l", defaultRateLimit, "data report interval")
+
 	flag.Parse()
 
 	cfg.Host = flagRunAddr
@@ -117,25 +133,40 @@ func NewAgentConfig() (AgentCfg, error) {
 		cfg.Host = envRunAddr
 	}
 
-	ReportInterval = flagReportInterval
+	cfg.ReportInterval = flagReportInterval
 	envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL")
 	if ok {
 		ReportInterval, err := strconv.ParseUint(envReportInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", ReportInterval, err)
+			return cfg, fmt.Errorf("failed to parse %s as a report interval value: %w", envReportInterval, err)
 		}
+		cfg.ReportInterval = ReportInterval
 	}
-	cfg.ReportInterval = ReportInterval
 
-	PollInterval = flagPollInterval
+	cfg.PollInterval = flagPollInterval
 	envPollInterval, ok := os.LookupEnv("POLL_INTERVAL")
 	if ok {
 		PollInterval, err := strconv.ParseUint(envPollInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a poll interval value: %w", PollInterval, err)
+			return cfg, fmt.Errorf("failed to parse %s as a poll interval value: %w", envPollInterval, err)
 		}
+		cfg.PollInterval = PollInterval
 	}
-	cfg.PollInterval = PollInterval
+
+	cfg.HashKey = flagHashKey
+	envHashKey, ok := os.LookupEnv("KEY")
+	if ok {
+		cfg.HashKey = envHashKey
+	}
+	cfg.RateLimit = flagRateLimit
+	envRateLimit, ok := os.LookupEnv("RATE_LIMIT")
+	if ok {
+		RateLimit, err := strconv.ParseUint(envRateLimit, 10, 64)
+		if err != nil {
+			return cfg, fmt.Errorf("failed to parse %s as a rate limit value: %w", envRateLimit, err)
+		}
+		cfg.RateLimit = RateLimit
+	}
 
 	return cfg, nil
 }
