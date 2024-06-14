@@ -30,10 +30,10 @@ type Metrics struct {
 }
 
 type MetricsToSend struct {
-	MType string  `json:"type"`            // параметр, принимающий значение gauge или counter
-	ID    string  `json:"id"`              // имя метрики
-	Delta int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	MType string  `json:"type"`
+	ID    string  `json:"id"`
+	Delta int64   `json:"delta,omitempty"`
+	Value float64 `json:"value,omitempty"`
 }
 
 func (a *Agent) saveMetrics() {

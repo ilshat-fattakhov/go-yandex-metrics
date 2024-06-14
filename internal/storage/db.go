@@ -57,12 +57,31 @@ func connectToDB(databaseDSN string) (*sql.DB, error) {
 	return db, nil
 }
 
+func pingDB(db *sql.DB) error {
+	err := db.Ping()
+	i := 1
+	for err != nil {
+		time.Sleep(time.Duration(i) * time.Second)
+		err = db.Ping()
+		i += 2
+		if i >= 5 {
+			break
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("unable to reach database after 3 attempts: %w", err)
+	}
+
+	return nil
+}
 func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
 	db, err := connectToDB(cfg.StorageCfg.DatabaseDSN)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
-	if err := db.Ping(); err != nil {
+
+	err = pingDB(db)
+	if err != nil {
 		return nil, fmt.Errorf("unable to reach database: %w", err)
 	}
 
@@ -79,14 +98,6 @@ func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
 	return &DBStorage{
 		db: db,
 	}, nil
-}
-
-func LoadMetricsDB(f *DBStorage, filePath string) error {
-	return nil
-}
-
-func SaveMetricsDB(s Storage, filePath string) error {
-	return nil
 }
 
 func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {

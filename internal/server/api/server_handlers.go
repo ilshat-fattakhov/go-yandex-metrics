@@ -40,10 +40,10 @@ type Metrics struct {
 }
 
 type MetricsToSend struct {
-	MType string  `json:"type"`            // параметр, принимающий значение gauge или counter
-	ID    string  `json:"id"`              // имя метрики
-	Delta int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	MType string  `json:"type"`
+	ID    string  `json:"id"`
+	Delta int64   `json:"delta,omitempty"`
+	Value float64 `json:"value,omitempty"`
 }
 
 func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
@@ -393,22 +393,20 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 		}
 
 		for _, b := range m {
-			mType := b.MType
-			mName := b.ID
 			var mValueFloat string
 			var mValueInt string
 
-			switch mType {
+			switch b.MType {
 			case GaugeType:
 				mValueFloat = strconv.FormatFloat(b.Value, 'f', -1, 64)
-				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat); err != nil {
+				if err := storage.Storage.SaveMetric(s.store, b.MType, b.ID, mValueFloat); err != nil {
 					s.logger.Info("error saving gauge metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 			case CounterType:
 				mValueInt = strconv.FormatInt(b.Delta, 10)
-				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueInt); err != nil {
+				if err := storage.Storage.SaveMetric(s.store, b.MType, b.ID, mValueInt); err != nil {
 					s.logger.Info("error saving counter metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
@@ -423,15 +421,14 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 		if acceptsGzip {
 			w.Header().Set(contentEncStr, gzipStr)
 		}
-		OK := "OK"
-		_, err = w.Write([]byte(OK))
+		_, err = w.Write(body)
 		if err != nil {
-			s.logger.Info("failed to write to ResponseWriter in UpdatesHandler: %w", zap.Error(err))
+			s.logger.Info("failed to write buffer to ResponseWriter in UpdatesHandler: %w", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set(contentLengthStr, strconv.Itoa(len(OK)))
+		w.Header().Set(contentLengthStr, strconv.Itoa(len(body)))
 		w.WriteHeader(http.StatusOK)
 	}
 }
