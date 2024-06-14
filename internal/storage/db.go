@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go-yandex-metrics/internal/config"
 	logger "go-yandex-metrics/internal/server/middleware"
@@ -38,8 +39,26 @@ type Metric struct {
 	metricValue string
 }
 
+func connectToDB(databaseDSN string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", databaseDSN)
+	i := 1
+	for err != nil {
+		time.Sleep(time.Duration(i) * time.Second)
+		db, err = sql.Open("pgx", databaseDSN)
+		i += 2
+		if i >= 5 {
+			break
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to database after 3 attempts: %w", err)
+	}
+
+	return db, nil
+}
+
 func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
-	db, err := sql.Open("pgx", cfg.StorageCfg.DatabaseDSN)
+	db, err := connectToDB(cfg.StorageCfg.DatabaseDSN)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
