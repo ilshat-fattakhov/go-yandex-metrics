@@ -52,6 +52,7 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
 func (a *Agent) Start() error {
 	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
 	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
+	//batchSend := time.NewTicker(time.Duration(4) * time.Second)
 
 	for {
 		select {
@@ -62,10 +63,11 @@ func (a *Agent) Start() error {
 			if err != nil {
 				a.logger.Error("failed to send metrics: %w", zap.Error(err))
 			}
-			err = a.sendMetricsBatch()
-			if err != nil {
-				a.logger.Error("failed to send metrics in batch: %w", zap.Error(err))
-			}
+			//case <-batchSend.C:
+			//	err := a.sendMetricsBatch()
+			//	if err != nil {
+			//		a.logger.Error("failed to send metrics in batch: %w", zap.Error(err))
+			//	}
 		}
 	}
 }
