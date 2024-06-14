@@ -75,8 +75,17 @@ func (a *Agent) Start() error {
 				}
 			}
 			err := a.sendMetricsBatch()
+			i := 1
+			for err != nil {
+				time.Sleep(time.Duration(i) * time.Second)
+				err = a.sendMetricsBatch()
+				i += 2
+				if i >= 5 || i > int(a.cfg.ReportInterval) {
+					break
+				}
+			}
 			if err != nil {
-				a.logger.Error("failed to send metrics in batch: %w", zap.Error(err))
+				a.logger.Error("failed to send a batch of metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
 			}
 		}
 	}
