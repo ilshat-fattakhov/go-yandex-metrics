@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS gaugemetrics (
 CREATE TABLE IF NOT EXISTS countermetrics (
 	id SERIAL PRIMARY KEY,
 	metricName VARCHAR (25) UNIQUE NOT NULL,
-	metricValue INTEGER NOT NULL
+	metricValue BIGINT NOT NULL
 )`
 	failedToInitLogger = "failed to init logger"
 )
