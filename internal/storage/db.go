@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"go-yandex-metrics/internal/config"
 	logger "go-yandex-metrics/internal/server/middleware"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +22,7 @@ type DBStorage struct {
 
 const (
 	CreateGaugeTableSQL = `
-CREATE TABLE IF NOT EXISTS gaugemetrics (
+CREATE TABLE IF NOT EXISTS gaugemetrics ( 
 	id SERIAL PRIMARY KEY,
 	metricName VARCHAR (25) UNIQUE NOT NULL,
 	metricValue DOUBLE PRECISION NOT NULL
@@ -87,6 +90,12 @@ func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
 
 	_, err = db.Exec(CreateGaugeTableSQL)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgerrcode.IsSyntaxErrororAccessRuleViolation(pgErr.Code) {
+				return nil, fmt.Errorf("cannot create gauge metrics table: %w", err)
+			}
+		}
 		return nil, fmt.Errorf("cannot create gauge metrics table: %w", err)
 	}
 
