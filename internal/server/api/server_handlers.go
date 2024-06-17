@@ -400,21 +400,22 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 		if v, ok := r.Header["Hashsha256"]; ok {
 			requestHash = v[0]
 		}
+		if requestHash != "" {
+			buf := bytes.NewBuffer(body)
+			severSideHash := s.calcHash(*buf)
 
-		buf := bytes.NewBuffer(body)
-		severSideHash := s.calcHash(*buf)
-
-		if severSideHash != requestHash {
-			// fmt.Println("Hashes are NOT!!! the same")
-			// fmt.Println("In :", requestHash)
-			// fmt.Println("Out:", severSideHash)
-			lg.Info("wrong hash sign")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		} else {
-			fmt.Println("Hashes are the same")
-			fmt.Println("In :", requestHash)
-			fmt.Println("Out:", severSideHash)
+			if severSideHash != requestHash {
+				// fmt.Println("Hashes are NOT!!! the same")
+				// fmt.Println("In :", requestHash)
+				// fmt.Println("Out:", severSideHash)
+				lg.Info("wrong hash sign")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			} else {
+				fmt.Println("Hashes are the same")
+				fmt.Println("In :", requestHash)
+				fmt.Println("Out:", severSideHash)
+			}
 		}
 
 		for _, b := range m {
