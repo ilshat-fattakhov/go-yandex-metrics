@@ -101,7 +101,6 @@ func NewServerConfig() (ServerCfg, error) {
 	}
 
 	cfg.StorageCfg = storageCfg
-	fmt.Println("Server config:", cfg)
 	return cfg, nil
 }
 
