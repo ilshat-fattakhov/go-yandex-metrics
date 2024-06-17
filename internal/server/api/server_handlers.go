@@ -3,7 +3,11 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -395,6 +399,27 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 			return
 		}
 
+		var requestHash = ""
+		if v, ok := r.Header["Hashsha256"]; ok {
+			requestHash = v[0]
+		}
+
+		buf := bytes.NewBuffer(body)
+		severSideHash := s.calcHash(*buf)
+
+		if severSideHash != requestHash {
+			// fmt.Println("Hashes are NOT!!! the same")
+			// fmt.Println("In :", requestHash)
+			// fmt.Println("Out:", severSideHash)
+			lg.Info("wrong hash sign")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		} else {
+			fmt.Println("Hashes are the same")
+			fmt.Println("In :", requestHash)
+			fmt.Println("Out:", severSideHash)
+		}
+
 		for _, b := range m {
 			var mValueFloat string
 			var mValueInt string
@@ -434,4 +459,14 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 		w.Header().Set(contentLengthStr, strconv.Itoa(len(body)))
 		w.WriteHeader(http.StatusOK)
 	}
+}
+
+func (s *Server) calcHash(buf bytes.Buffer) string {
+	var secretkey = []byte(s.cfg.HashKey)
+	hashSHA256 := hmac.New(sha256.New, secretkey)
+
+	hashSHA256.Write(buf.Bytes())
+	bs := hashSHA256.Sum(nil)
+
+	return hex.EncodeToString(bs)
 }
