@@ -100,6 +100,7 @@ func NewServerConfig() (ServerCfg, error) {
 	}
 
 	cfg.StorageCfg = storageCfg
+	fmt.Println("Server config:", cfg)
 	return cfg, nil
 }
 
@@ -158,5 +159,6 @@ func NewAgentConfig() (AgentCfg, error) {
 	}
 
 	cfg.PollInterval = PollInterval
+	fmt.Println("Agent config:", cfg)
 	return cfg, nil
 }
