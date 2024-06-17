@@ -2,6 +2,9 @@ package api
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -154,10 +157,22 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	}
 	req.Close = true
 
+	hs := a.calcHash(buf)
+
+	if a.cfg.HashKey != "" {
+		req.Header.Add("HashSHA256", hs)
+	}
+
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
+	for k, v := range req.Header {
+		fmt.Println(k, v)
+	}
+
 	resp, err := a.client.Do(req)
+
 	if err != nil {
 		return fmt.Errorf("failed to do a request, server is probably down:  %w", err)
 	}
@@ -198,6 +213,11 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 	}
 	req.Close = true
 
+	agentHash := a.calcHash(buf)
+	if a.cfg.HashKey != "" {
+		req.Header.Add("HashSHA256", agentHash)
+	}
+
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
@@ -221,4 +241,14 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 	}
 
 	return nil
+}
+
+func (a *Agent) calcHash(buf bytes.Buffer) string {
+	var secretkey = []byte(a.cfg.HashKey)
+	hashSHA256 := hmac.New(sha256.New, secretkey)
+
+	hashSHA256.Write(buf.Bytes())
+	bs := hashSHA256.Sum(nil)
+
+	return hex.EncodeToString(bs)
 }
