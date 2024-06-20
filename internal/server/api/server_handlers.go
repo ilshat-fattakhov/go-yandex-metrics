@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -351,9 +352,13 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				return
 			}
 		} else {
+			fmt.Println(r.RequestURI)
+
 			mType := chi.URLParam(r, "mtype")
 			mName := chi.URLParam(r, "mname")
 			mValue := chi.URLParam(r, "mvalue")
+
+			fmt.Println(mType, mName, mValue)
 
 			if mType == GaugeType || mType == CounterType {
 				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValue); err != nil {
