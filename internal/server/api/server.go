@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
@@ -46,7 +45,6 @@ func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
 
 	tpl, err := createTemplate()
 	if err != nil {
-		lg.Info("got error parsing metrics template")
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 
@@ -146,14 +144,14 @@ func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
 			if sendsGzip {
 				cr, err := gzip.NewCompressReader(r.Body)
 				if err != nil {
-					s.logger.Info("failed to create newCompressReader: %w", zap.Error(err))
+					s.logger.Info("failed to create newCompressReader:", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				r.Body = cr
 				defer func() {
 					if err := cr.Close(); err != nil {
-						s.logger.Info("failed to close newCompressReader: %w", zap.Error(err))
+						s.logger.Info("failed to close newCompressReader:", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}

@@ -2,7 +2,7 @@ package storage
 
 import (
 	"context"
-	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,109 +11,66 @@ import (
 	"go-yandex-metrics/internal/config"
 	logger "go-yandex-metrics/internal/server/middleware"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type DBStorage struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
-
-const (
-	CreateGaugeTableSQL = `
-CREATE TABLE IF NOT EXISTS gaugemetrics ( 
-	id SERIAL PRIMARY KEY,
-	metricName VARCHAR (25) UNIQUE NOT NULL,
-	metricValue DOUBLE PRECISION NOT NULL
-)`
-
-	CreateCounterTableSQL = `
-CREATE TABLE IF NOT EXISTS countermetrics (
-	id SERIAL PRIMARY KEY,
-	metricName VARCHAR (25) UNIQUE NOT NULL,
-	metricValue BIGINT NOT NULL
-)`
-	failedToInitLogger = "failed to init logger"
-)
 
 type Metric struct {
 	metricName  string
 	metricValue string
 }
 
-func connectToDB(databaseDSN string) (*sql.DB, error) {
-	db, err := sql.Open("pgx", databaseDSN)
-	i := 1
-	for err != nil {
-		time.Sleep(time.Duration(i) * time.Second)
-		db, err = sql.Open("pgx", databaseDSN)
-		i += 2
-		if i >= 5 {
-			break
-		}
-	}
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to database after 3 attempts: %w", err)
-	}
+//go:embed migrations/*.sql
+var migrationsDir embed.FS
 
-	return db, nil
-}
-
-func pingDB(db *sql.DB) error {
-	err := db.Ping()
-	i := 1
-	for err != nil {
-		time.Sleep(time.Duration(i) * time.Second)
-		err = db.Ping()
-		i += 2
-		if i >= 5 {
-			break
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("unable to reach database after 3 attempts: %w", err)
-	}
-
-	return nil
-}
 func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
-	db, err := connectToDB(cfg.StorageCfg.DatabaseDSN)
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to database: %w", err)
+	if err := runMigrations(cfg.StorageCfg.DatabaseDSN); err != nil {
+		return nil, fmt.Errorf("failed to run DB migrations: %w", err)
 	}
 
-	err = pingDB(db)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, cfg.StorageCfg.DatabaseDSN)
 	if err != nil {
-		return nil, fmt.Errorf("unable to reach database: %w", err)
-	}
-
-	_, err = db.Exec(CreateGaugeTableSQL)
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			if pgerrcode.IsSyntaxErrororAccessRuleViolation(pgErr.Code) {
-				return nil, fmt.Errorf("cannot create gauge metrics table: %w", err)
-			}
-		}
-		return nil, fmt.Errorf("cannot create gauge metrics table: %w", err)
-	}
-
-	_, err = db.Exec(CreateCounterTableSQL)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create counter metrics table: %w", err)
+		return nil, fmt.Errorf("failed to create a connection pool: %w", err)
 	}
 
 	return &DBStorage{
-		db: db,
+		pool: pool,
 	}, nil
 }
 
-func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
+func runMigrations(dsn string) error {
 	lg, err := logger.InitLogger()
 	if err != nil {
-		return fmt.Errorf(failedToInitLogger+": %w", err)
+		return fmt.Errorf("failed to init logger: %w", err)
 	}
+	d, err := iofs.New(migrationsDir, "migrations")
+	if err != nil {
+		return fmt.Errorf("failed to return iofs driver: %w", err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", d, dsn)
+	if err != nil {
+		return fmt.Errorf("failed to get a new migrate instance: %w", err)
+	}
+	if err := m.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			lg.Info("failed to apply migrations:", zap.Error(err))
+		} else {
+			return fmt.Errorf("failed to apply migrations to the DB: %w", err)
+		}
+	}
+	return nil
+}
+
+func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
 	sqlInsert := ""
 
 	switch mType {
@@ -126,31 +83,15 @@ func (d *DBStorage) SaveMetric(mType, mName, mValue string) error {
 	}
 
 	ctx := context.Background()
-	stmt, err := d.db.PrepareContext(ctx, sqlInsert)
+	_, err := d.pool.Exec(ctx, sqlInsert, mName, mValue, mValue)
 	if err != nil {
-		return fmt.Errorf("cannot prepare SQL statement while saving metric: %w", err)
+		return fmt.Errorf("cannot execute query while saving metric: %w", err)
 	}
-
-	_, err = stmt.ExecContext(ctx, mName, mValue, mValue)
-	if err != nil {
-		return fmt.Errorf("cannot execute sql: %w", err)
-	}
-
-	defer func() {
-		if err := stmt.Close(); err != nil {
-			lg.Error("cannot close statement: %w", zap.Error(err))
-		}
-	}()
 
 	return nil
 }
 
 func (d *DBStorage) GetMetric(mType, mName string) (string, error) {
-	lg, err := logger.InitLogger()
-	if err != nil {
-		return "", fmt.Errorf(failedToInitLogger+": %w", err)
-	}
-
 	sqlSelect := ""
 
 	switch mType {
@@ -161,17 +102,8 @@ func (d *DBStorage) GetMetric(mType, mName string) (string, error) {
 	}
 
 	ctx := context.Background()
-	stmt, err := d.db.PrepareContext(ctx, sqlSelect)
-	if err != nil {
-		return "", fmt.Errorf("cannot prepare SQL statement while getting metric: %w", err)
-	}
-	defer func() {
-		if err := stmt.Close(); err != nil {
-			lg.Error("cannot close statement: %w", zap.Error(err))
-		}
-	}()
+	row := d.pool.QueryRow(ctx, sqlSelect, mName)
 
-	row := stmt.QueryRowContext(ctx, mName)
 	if mType == GaugeType {
 		var metricValue float64
 		err := row.Scan(&metricValue)
@@ -208,10 +140,6 @@ func (d *DBStorage) GetAllMetrics() (string, error) {
 }
 
 func (d *DBStorage) getMetrics(mType string) (string, error) {
-	lg, err := logger.InitLogger()
-	if err != nil {
-		return "", fmt.Errorf(failedToInitLogger+": %w", err)
-	}
 	sqlSelect := ""
 
 	switch mType {
@@ -222,15 +150,10 @@ func (d *DBStorage) getMetrics(mType string) (string, error) {
 	}
 
 	ctx := context.Background()
-	rows, err := d.db.QueryContext(ctx, sqlSelect)
+	rows, err := d.pool.Query(ctx, sqlSelect)
 	if err != nil {
 		return "", fmt.Errorf("error running sql query: %w", err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			lg.Error("error running sql query: %w", zap.Error(err))
-		}
-	}()
 
 	metrics := make([]Metric, 0)
 

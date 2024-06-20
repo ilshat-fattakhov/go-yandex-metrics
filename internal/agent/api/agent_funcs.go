@@ -75,24 +75,24 @@ func (a *Agent) saveMetrics() {
 	a.store.memLock.Unlock()
 }
 
-func (a *Agent) sendMetrics() error {
+func (a *Agent) sendMetrics() {
 	for n, v := range a.store.Gauge {
 		err := a.sendData(v, n, GaugeType, http.MethodPost)
 		if err != nil {
-			return fmt.Errorf("an error occured sending gauge data: %w", err)
+			a.logger.Info("an error occured sending gauge data", zap.Error(err))
 		}
 	}
 
 	for n, v := range a.store.Counter {
 		err := a.sendData(v, n, CounterType, http.MethodPost)
 		if err != nil {
-			return fmt.Errorf("an error occured sending counter data: %w", err)
+			a.logger.Info("an error occured sending counter data", zap.Error(err))
 		}
 	}
 
 	a.store.Counter["PollCount"] = 0
-	return nil
 }
+
 func (a *Agent) sendMetricsBatch() error {
 	metrics := []MetricsToSend{}
 
@@ -114,6 +114,7 @@ func (a *Agent) sendMetricsBatch() error {
 
 	return nil
 }
+
 func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	var metric = Metrics{}
 
@@ -123,7 +124,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		case float64:
 			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
 		default:
-			a.logger.Warn(GaugeType + " is not float64")
 			return errors.New(GaugeType + " is not float64")
 		}
 	case CounterType:
@@ -131,7 +131,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		case int64:
 			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
 		default:
-			a.logger.Warn(CounterType + " is not int64")
 			return errors.New(CounterType + " is not int64")
 		}
 	}
@@ -173,7 +172,7 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 
 	err = resp.Body.Close()
 	if err != nil {
-		a.logger.Info("error closing response body: %w", zap.Error(err))
+		a.logger.Info("error closing response body:", zap.Error(err))
 		return fmt.Errorf("error closing response body: %w", err)
 	}
 

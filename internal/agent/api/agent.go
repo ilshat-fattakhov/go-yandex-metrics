@@ -60,35 +60,19 @@ func (a *Agent) Start() error {
 		case <-tickerSave.C:
 			a.saveMetrics()
 		case <-tickerSend.C:
-			err := a.sendMetrics()
-			if err != nil {
-				a.logger.Error("failed to send metrics, trying again: %w", zap.Error(err))
-				if a.cfg.ReportInterval > 1 {
-					for i := 1; i <= 5; i += 2 {
-						if i > int(a.cfg.ReportInterval) {
-							break
-						}
+			a.sendMetrics()
+		case <-batchSend.C:
+			if a.cfg.ReportInterval > 0 {
+				for i := 1; i <= 5; i += 2 {
+					if i > int(a.cfg.ReportInterval) {
+						break
+					}
+					err := a.sendMetricsBatch()
+					if err != nil {
 						time.Sleep(time.Duration(i) * time.Second)
-						err := a.sendMetrics()
-						if err != nil {
-							a.logger.Error("failed to send metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
-						}
+						a.logger.Error("failed to send a batch of metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
 					}
 				}
-			}
-		case <-batchSend.C:
-			err := a.sendMetricsBatch()
-			i := 1
-			for err != nil {
-				time.Sleep(time.Duration(i) * time.Second)
-				err = a.sendMetricsBatch()
-				i += 2
-				if i >= 5 || i > int(a.cfg.ReportInterval) {
-					break
-				}
-			}
-			if err != nil {
-				a.logger.Error("failed to send a batch of metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
 			}
 		}
 	}
