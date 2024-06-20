@@ -2,150 +2,287 @@ package api
 
 import (
 	"bytes"
-	"errors"
-	"log"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
-
-	"go-yandex-metrics/internal/config"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
+	"go-yandex-metrics/internal/storage"
 )
 
+const (
+	ContentType     = "Content-Type"
+	applicationJSON = "application/json"
+	oSuserRW        = 0o600
+)
+
+const (
+	GaugeType     string = "gauge"
+	CounterType   string = "counter"
+	gzipStr       string = "gzip"
+	contentEncStr string = "Content-Encoding"
+)
+
+type Metrics struct {
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	ID    string   `json:"id"`              // имя метрики
+}
+
 func (s *Server) IndexHandler(w http.ResponseWriter, r *http.Request) {
-	allMetrics := getAllMetrics(s)
+	allMetrics := s.store.GetAllMetrics()
 
 	t := s.tpl
 	var doc bytes.Buffer
 	err := t.Execute(&doc, allMetrics)
 	if err != nil {
-		log.Printf("an error occured processing template data: %v", err)
+		s.logger.Info("an error occured processing template data: %w", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set(ContentType, "text/html")
 	w.Header().Set("charset", "utf-8")
 	w.WriteHeader(http.StatusOK)
 
 	html := doc.String()
+
 	_, err = w.Write([]byte(html))
 	if err != nil {
-		log.Printf("an error occured writing to browser: %v", err)
-	}
-}
-
-func getAllMetrics(s *Server) string {
-	html := "<h3>Gauge:</h3>"
-	for mName, mValue := range s.store.Gauge {
-		html += (mName + ":" + strconv.FormatFloat(mValue, 'f', -1, 64) + "<br>")
-	}
-	html += "<h3>Counter:</h3>"
-	for mName, mValue := range s.store.Counter {
-		html += (mName + ":" + strconv.FormatInt(mValue, 10) + "<br>")
-	}
-
-	return html
-}
-
-func (s *Server) GetHandler(w http.ResponseWriter, r *http.Request) {
-	mType := chi.URLParam(r, "mtype")
-	mName := chi.URLParam(r, "mname")
-	mValue, err := s.getSingleMetric(mType, mName)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	t := s.tpl
-	var doc bytes.Buffer
-	err = t.Execute(&doc, mValue)
-	if err != nil {
-		log.Printf("an error occured processing template data: %v", err)
+		s.logger.Info("an error occured writing to browser: %w", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/html")
-	w.Header().Set("charset", "utf-8")
-	w.WriteHeader(http.StatusOK)
-
-	html := doc.String()
-	_, err = w.Write([]byte(html))
-	if err != nil {
-		log.Printf("an error occured writing to browser: %v", err)
-	}
 }
 
-func (s *Server) getSingleMetric(mType, mName string) (string, error) {
-	var html string
-	var ErrItemNotFound = errors.New("item not found")
-
-	switch mType {
-	case config.GaugeType:
-		if mValue, ok := s.store.Gauge[mName]; !ok {
-			return "", ErrItemNotFound
-		} else {
-			html = strconv.FormatFloat(mValue, 'f', -1, 64)
-			return html, nil
+func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestedJSON := false
+		contentType := r.Header.Get("Content-Type")
+		if contentType == applicationJSON {
+			requestedJSON = true
 		}
-	case config.CounterType:
-		if mValue, ok := s.store.Counter[mName]; !ok {
-			return "", ErrItemNotFound
+
+		contentEncoding := r.Header.Get("Accept-Encoding")
+		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
+
+		if requestedJSON {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				s.logger.Info("error reading request body", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			var m Metrics
+
+			err = json.Unmarshal(body, &m)
+			if err != nil {
+				s.logger.Info("failed to unmarshal body: %w", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			mValue, err := s.store.GetMetric(m.MType, m.ID)
+			if err != nil {
+				s.logger.Info("failed to get metric: %w", zap.Error(err))
+				w.WriteHeader(http.StatusNotFound)
+				return
+			} else {
+				if mValue == "" {
+					s.logger.Info("metric value is empty: %w", zap.Error(err))
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+
+				var metric = Metrics{}
+
+				switch m.MType {
+				case GaugeType:
+					mValue, err := strconv.ParseFloat(mValue, 64)
+					if err != nil {
+						s.logger.Info("failed to convert string to float64 value: %w", zap.Error(err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					metric = Metrics{ID: m.ID, MType: m.MType, Value: &mValue}
+				case CounterType:
+					mValue, err := strconv.ParseInt(mValue, 10, 64)
+					if err != nil {
+						s.logger.Info("failed to convert string to int64 value: %w", zap.Error(err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					metric = Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
+				}
+
+				w.Header().Set(ContentType, applicationJSON)
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+
+				err = json.NewEncoder(w).Encode(metric)
+				if err != nil {
+					s.logger.Info("failed to JSON encode gauge metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+
+				return
+			}
 		} else {
-			html = strconv.FormatInt(mValue, 10)
-			return html, nil
+			mType := chi.URLParam(r, "mtype")
+			mName := chi.URLParam(r, "mname")
+			mValue, err := s.store.GetMetric(mType, mName)
+			if err != nil {
+				s.logger.Info("metric not found: %w", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			t := s.tpl
+			var doc bytes.Buffer
+			err = t.Execute(&doc, mValue)
+			if err != nil {
+				s.logger.Info("an error occured processing template data: %w", zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			html := doc.String()
+
+			_, err = w.Write([]byte(html))
+			if err != nil {
+				s.logger.Info("an error occured writing to browser: %w", zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set(ContentType, "text/html")
+			w.Header().Set("charset", "utf-8")
+			w.WriteHeader(http.StatusOK)
+			return
 		}
-	default:
-		return "", nil
 	}
 }
 
-func (s *Server) UpdateHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
+func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contentEncoding := r.Header.Get("Accept-Encoding")
+		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
+
+		if r.RequestURI == "/update/" {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				s.logger.Info("error reading request body: %w", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			w.Header().Set(ContentType, applicationJSON)
+
+			var m Metrics
+
+			err = json.Unmarshal(body, &m)
+			if err != nil {
+				s.logger.Info("error decoding JSON request: %w", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			mType := m.MType
+			mName := m.ID
+			var mValueFloat string
+			var mValueInt string
+
+			switch mType {
+			case GaugeType:
+				mValueFloat = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueFloat); err != nil {
+					s.logger.Info("error saving metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				metric := Metrics{ID: mName, MType: GaugeType, Value: m.Value}
+
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
+				if err != nil {
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
+				return
+			case CounterType:
+				mValueInt = strconv.FormatInt(*m.Delta, 10)
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValueInt); err != nil {
+					s.logger.Info("error saving metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				metric := Metrics{ID: mName, MType: CounterType, Delta: m.Delta}
+
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
+				if err != nil {
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
+				}
+				_, err = w.Write(buf.Bytes())
+				if err != nil {
+					s.logger.Info("failed to write buffer to ResponseWriter: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+				w.WriteHeader(http.StatusOK)
+				return
+
+			default:
+				lg.Info("wrong metric type - neither gauge nor counter")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		} else {
+			mType := chi.URLParam(r, "mtype")
+			mName := chi.URLParam(r, "mname")
+			mValue := chi.URLParam(r, "mvalue")
+
+			if mType == GaugeType || mType == CounterType {
+				if err := storage.Storage.SaveMetric(s.store, mType, mName, mValue); err != nil {
+					s.logger.Info("error saving metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		}
 	}
-
-	mType := chi.URLParam(r, "mtype")
-	mName := chi.URLParam(r, "mname")
-	mValue := chi.URLParam(r, "mvalue")
-
-	if mType == config.GaugeType || mType == config.CounterType {
-		s.Save(mType, mName, mValue, w)
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-}
-
-func (s *Server) Save(mType, mName, mValue string, w http.ResponseWriter) {
-	switch mType {
-	case config.CounterType:
-		s.saveCounter(mName, mValue, w)
-	case config.GaugeType:
-		s.saveGauge(mName, mValue, w)
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func (s *Server) saveCounter(mName, mValue string, w http.ResponseWriter) {
-	vFloat64, err := strconv.ParseFloat(mValue, 64)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	vInt64 := int64(vFloat64)
-	s.store.Counter[mName] += vInt64
-}
-
-func (s *Server) saveGauge(mName, mValue string, w http.ResponseWriter) {
-	vFloat64, err := strconv.ParseFloat(mValue, 64)
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	s.store.Gauge[mName] = vFloat64
 }

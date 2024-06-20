@@ -1,11 +1,15 @@
 package api
 
 import (
-	"log"
+	"fmt"
+	"net/http"
+	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"go-yandex-metrics/internal/config"
-	"go-yandex-metrics/internal/storage"
+	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 type AgentCfg struct {
@@ -15,16 +19,34 @@ type AgentCfg struct {
 }
 
 type Agent struct {
-	store *storage.MemStorage
-	cfg   config.AgentCfg
+	logger *zap.Logger
+	store  *MemStorage
+	client *http.Client
+	cfg    config.AgentCfg
 }
 
-func NewAgent(cfg config.AgentCfg, store *storage.MemStorage) *Agent {
-	agt := &Agent{
-		cfg:   cfg,
-		store: store,
+type MemStorage struct {
+	Gauge   map[string]float64 `json:"gauge"`
+	Counter map[string]int64   `json:"counter"`
+	memLock *sync.Mutex
+}
+
+func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init logger: %w", err)
 	}
-	return agt
+
+	agt := &Agent{
+		logger: lg,
+		store:  store,
+		client: &http.Client{
+			Timeout:   time.Duration(1) * time.Second,
+			Transport: &http.Transport{},
+		},
+		cfg: cfg,
+	}
+	return agt, nil
 }
 
 func (a *Agent) Start() error {
@@ -34,17 +56,20 @@ func (a *Agent) Start() error {
 	for {
 		select {
 		case <-tickerSave.C:
-			err := a.SaveMetrics()
-			if err != nil {
-				log.Printf("failed to save metrics: %v", err)
-				return nil
-			}
+			a.saveMetrics()
 		case <-tickerSend.C:
-			err := a.SendMetrics()
+			err := a.sendMetrics()
 			if err != nil {
-				log.Printf("failed to send metrics: %v", err)
-				return nil
+				a.logger.Error("failed to send metrics: %w", zap.Error(err))
 			}
 		}
 	}
+}
+
+func NewAgentMemStorage(cfg config.AgentCfg) (*MemStorage, error) {
+	return &MemStorage{
+		Gauge:   make(map[string]float64),
+		Counter: make(map[string]int64),
+		memLock: &sync.Mutex{},
+	}, nil
 }

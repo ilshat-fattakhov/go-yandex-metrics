@@ -5,59 +5,94 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"text/template"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
+	"go-yandex-metrics/internal/gzip"
+	logger "go-yandex-metrics/internal/server/middleware"
 	"go-yandex-metrics/internal/storage"
 )
 
-type ServerCfg struct {
-	Host string
-}
-
 type Server struct {
-	tpl    *template.Template
-	store  *storage.MemStorage
 	router *chi.Mux
+	tpl    *template.Template
+	logger *zap.Logger
+	store  storage.Storage
 	cfg    config.ServerCfg
 }
 
-func NewServer(cfg config.ServerCfg, store *storage.MemStorage) (*Server, error) {
+type ServerCfg struct {
+	Host       string `json:"host"`
+	StorageCfg StorageCfg
+}
+
+type StorageCfg struct {
+	FileStoragePath string
+	StoreInterval   uint64 `json:"store_interval"`
+	Restore         bool   `json:"restore"`
+}
+
+func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
+	lg, err := logger.InitLogger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init logger: %w", err)
+	}
+
 	tpl, err := createTemplate()
 	if err != nil {
+		lg.Info("got error parsing metrics template")
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
+
 	srv := &Server{
-		store:  store,
 		router: chi.NewRouter(),
-		cfg:    cfg,
 		tpl:    tpl,
+		logger: lg,
+		store:  store,
+		cfg:    cfg,
 	}
+
 	srv.routes()
+
 	return srv, nil
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(cfg config.ServerCfg) error {
 	server := http.Server{
-		Addr:    s.cfg.Host,
+		Addr:    cfg.Host,
 		Handler: s.router,
 	}
+
+	saveData(s)
+
+	s.logger.Info("starting server")
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
-			log.Printf("HTTP server has encountered an error %v", err)
-			return nil
+			return fmt.Errorf("HTTP server has encountered an errors: %w", err)
 		}
 	}
+
 	return nil
 }
 
 func (s *Server) routes() {
+	lg := s.logger
+
 	s.router.Route("/", func(r chi.Router) {
+		r.Use(logger.Logger(lg))
+		r.Use(s.GzipMiddleware())
+
 		r.Get("/", s.IndexHandler)
-		r.Get("/value/{mtype}/{mname}", s.GetHandler)
-		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler)
+		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
+		r.Post("/value/", s.GetHandler(lg))
+
+		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler(lg))
+		r.Post("/update/", s.UpdateHandler(lg))
 	})
 }
 
@@ -68,4 +103,61 @@ func createTemplate() (*template.Template, error) {
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 	return t, nil
+}
+
+func saveData(s *Server) {
+	if s.cfg.StorageCfg.StoreInterval != 0 && s.cfg.StorageCfg.FileStoragePath != "" {
+		go func() {
+			tickerStore := time.NewTicker(time.Duration(s.cfg.StorageCfg.StoreInterval) * time.Second)
+			for range tickerStore.C {
+				err := storage.SaveMetrics(s.store, s.cfg.StorageCfg.FileStoragePath)
+				if err != nil {
+					log.Fatal("failed to save metrics: %w", err)
+				}
+			}
+		}()
+	}
+}
+
+func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			ow := w
+			acceptEncoding := r.Header.Get("Accept-Encoding")
+			supportsGzip := strings.Contains(acceptEncoding, "gzip")
+			if supportsGzip {
+				cw := gzip.NewCompressWriter(w)
+				ow = cw
+				defer func() {
+					if err := cw.Close(); err != nil {
+						s.logger.Info("failed to close newCompressWriter: %w", zap.Error(err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}()
+			}
+
+			contentEncoding := r.Header.Get("Content-Encoding")
+			sendsGzip := strings.Contains(contentEncoding, "gzip")
+			if sendsGzip {
+				cr, err := gzip.NewCompressReader(r.Body)
+				if err != nil {
+					s.logger.Info("failed to create newCompressReader: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				r.Body = cr
+				defer func() {
+					if err := cr.Close(); err != nil {
+						s.logger.Info("failed to close newCompressReader: %w", zap.Error(err))
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+				}()
+			}
+
+			next.ServeHTTP(ow, r)
+		}
+		return http.HandlerFunc(fn)
+	}
 }

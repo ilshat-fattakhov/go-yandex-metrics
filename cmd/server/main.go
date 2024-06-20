@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"go-yandex-metrics/internal/config"
@@ -9,19 +10,30 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	cfg, err := config.NewServerConfig()
 	if err != nil {
-		log.Fatalf("failed to create config: %v", err)
+		return fmt.Errorf("failed to create config: %w", err)
 	}
 
-	store := storage.NewMemStorage()
+	store, err := storage.NewStore(&cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create storage: %w", err)
+	}
+
 	server, err := api.NewServer(cfg, store)
 	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
+		return fmt.Errorf("failed to create server: %w", err)
 	}
 
-	err = server.Start()
+	err = server.Start(cfg)
 	if err != nil {
-		log.Fatalf("failed to start server %v", err)
+		return fmt.Errorf("failed to start server: %w", err)
 	}
+	return nil
 }
