@@ -67,7 +67,7 @@ func (m *MemStorage) GetMetric(mType, mName string) (string, error) {
 	}
 }
 
-func (m *MemStorage) GetAllMetrics() string {
+func (m *MemStorage) GetAllMetrics() (string, error) {
 	html := "<h3>Gauge:</h3>"
 	for mName, mValue := range m.Gauge {
 		html += (mName + ":" + strconv.FormatFloat(mValue, 'f', -1, 64) + "<br>")
@@ -76,7 +76,7 @@ func (m *MemStorage) GetAllMetrics() string {
 	for mName, mValue := range m.Counter {
 		html += (mName + ":" + strconv.FormatInt(mValue, 10) + "<br>")
 	}
-	return html
+	return html, nil
 }
 
 func (m *MemStorage) saveCounter(mName, mValue string) error {

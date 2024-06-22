@@ -45,7 +45,6 @@ func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
 
 	tpl, err := createTemplate()
 	if err != nil {
-		lg.Info("got error parsing metrics template")
 		return nil, fmt.Errorf("an error occured parsing metrics template: %w", err)
 	}
 
@@ -88,10 +87,13 @@ func (s *Server) routes() {
 		r.Use(s.GzipMiddleware())
 
 		r.Get("/", s.IndexHandler)
+		r.Get("/ping", s.PingHandler)
+
 		r.Get("/value/{mtype}/{mname}", s.GetHandler(lg))
 		r.Post("/value/", s.GetHandler(lg))
 
 		r.Post("/update/{mtype}/{mname}/{mvalue}", s.UpdateHandler(lg))
+		r.Post("/updates/", s.UpdatesHandler(lg))
 		r.Post("/update/", s.UpdateHandler(lg))
 	})
 }
@@ -142,14 +144,14 @@ func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
 			if sendsGzip {
 				cr, err := gzip.NewCompressReader(r.Body)
 				if err != nil {
-					s.logger.Info("failed to create newCompressReader: %w", zap.Error(err))
+					s.logger.Info("failed to create newCompressReader:", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				r.Body = cr
 				defer func() {
 					if err := cr.Close(); err != nil {
-						s.logger.Info("failed to close newCompressReader: %w", zap.Error(err))
+						s.logger.Info("failed to close newCompressReader:", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}

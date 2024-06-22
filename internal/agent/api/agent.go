@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
@@ -37,30 +38,52 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
 		return nil, fmt.Errorf("failed to init logger: %w", err)
 	}
 
+	retClient := retryablehttp.NewClient()
+	retClient.Backoff = Backoff
+
+	retClient.RetryMax = 3
+	retClient.RetryWaitMin = 1 * time.Second
+	retClient.RetryWaitMax = 5 * time.Second
+
+	stClient := retClient.StandardClient()
+
 	agt := &Agent{
 		logger: lg,
 		store:  store,
-		client: &http.Client{
-			Timeout:   time.Duration(1) * time.Second,
-			Transport: &http.Transport{},
-		},
-		cfg: cfg,
+		client: stClient,
+		cfg:    cfg,
 	}
 	return agt, nil
+}
+
+func Backoff(minValue, maxValue time.Duration, attemptNum int, resp *http.Response) time.Duration {
+	switch attemptNum {
+	case 0:
+		return 1 * time.Second
+	case 1:
+		return 3 * time.Second
+	case 2:
+		return 5 * time.Second
+	default:
+		return 3 * time.Second
+	}
 }
 
 func (a *Agent) Start() error {
 	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
 	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
+	batchSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
 
 	for {
 		select {
 		case <-tickerSave.C:
 			a.saveMetrics()
 		case <-tickerSend.C:
-			err := a.sendMetrics()
+			a.sendMetrics()
+		case <-batchSend.C:
+			err := a.sendMetricsBatch()
 			if err != nil {
-				a.logger.Error("failed to send metrics: %w", zap.Error(err))
+				a.logger.Error("failed to send a batch of metrics", zap.Error(err))
 			}
 		}
 	}

@@ -14,6 +14,7 @@ type ServerCfg struct {
 
 type StorageCfg struct {
 	FileStoragePath string
+	DatabaseDSN     string
 	StoreInterval   uint64 `json:"store_interval"`
 	Restore         bool   `json:"restore"`
 }
@@ -32,17 +33,21 @@ func NewServerConfig() (ServerCfg, error) {
 	const defaultStoreInterval uint64 = 300               // значение 0 делает запись синхронной
 	const defaultFileStoragePath = "/tmp/metrics-db.json" // пустое значение отключает функцию записи на диск
 	const defaultRestore = true
+	const defaultDatabaseDSN = ""
 
 	var flagRunAddr string
 	var flagStoreInterval uint64
 	var flagFileStoragePath string
 	var flagRestore bool
+	var flagDatabaseDSN string
 
 	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
-
 	flag.BoolVar(&flagRestore, "r", defaultRestore, "restore data from file at server start")
 	flag.Uint64Var(&flagStoreInterval, "i", defaultStoreInterval, "data storing interval")
+
 	flag.StringVar(&flagFileStoragePath, "f", defaultFileStoragePath, "file storage path")
+	flag.StringVar(&flagDatabaseDSN, "d", defaultDatabaseDSN, "DB connection string")
+
 	flag.Parse()
 
 	cfg.Host = flagRunAddr
@@ -50,6 +55,7 @@ func NewServerConfig() (ServerCfg, error) {
 	if ok {
 		cfg.Host = envRunAddr
 	}
+
 	storageCfg.StoreInterval = flagStoreInterval
 	envStoreInterval, ok := os.LookupEnv("STORE_INTERVAL")
 	if ok {
@@ -58,12 +64,6 @@ func NewServerConfig() (ServerCfg, error) {
 			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", tmpStoreInterval, err)
 		}
 		storageCfg.StoreInterval = tmpStoreInterval
-	}
-
-	storageCfg.FileStoragePath = flagFileStoragePath
-	envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH")
-	if ok {
-		storageCfg.FileStoragePath = envFileStoragePath
 	}
 
 	storageCfg.Restore = flagRestore
@@ -75,6 +75,19 @@ func NewServerConfig() (ServerCfg, error) {
 		}
 		storageCfg.Restore = boolValue
 	}
+
+	storageCfg.DatabaseDSN = flagDatabaseDSN
+	envflagDatabaseDSN, ok := os.LookupEnv("DATABASE_DSN")
+	if ok {
+		storageCfg.DatabaseDSN = envflagDatabaseDSN
+	}
+
+	storageCfg.FileStoragePath = flagFileStoragePath
+	envFileStoragePath, ok := os.LookupEnv("FILE_STORAGE_PATH")
+	if ok {
+		storageCfg.FileStoragePath = envFileStoragePath
+	}
+
 	cfg.StorageCfg = storageCfg
 	return cfg, nil
 }
