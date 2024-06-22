@@ -9,13 +9,11 @@ import (
 	"time"
 
 	"go-yandex-metrics/internal/config"
-	logger "go-yandex-metrics/internal/server/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 )
 
 type DBStorage struct {
@@ -48,10 +46,6 @@ func NewDBStorage(cfg *config.ServerCfg) (*DBStorage, error) {
 }
 
 func runMigrations(dsn string) error {
-	lg, err := logger.InitLogger()
-	if err != nil {
-		return fmt.Errorf("failed to init logger: %w", err)
-	}
 	d, err := iofs.New(migrationsDir, "migrations")
 	if err != nil {
 		return fmt.Errorf("failed to return iofs driver: %w", err)
@@ -61,9 +55,7 @@ func runMigrations(dsn string) error {
 		return fmt.Errorf("failed to get a new migrate instance: %w", err)
 	}
 	if err := m.Up(); err != nil {
-		if errors.Is(err, migrate.ErrNoChange) {
-			lg.Info("failed to apply migrations:", zap.Error(err))
-		} else {
+		if !errors.Is(err, migrate.ErrNoChange) {
 			return fmt.Errorf("failed to apply migrations to the DB: %w", err)
 		}
 	}
