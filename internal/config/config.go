@@ -25,6 +25,7 @@ type AgentCfg struct {
 	HashKey        string
 	PollInterval   uint64 `json:"poll_interval"`
 	ReportInterval uint64 `json:"report_interval"`
+	RateLimit      uint64
 }
 
 func NewServerConfig() (ServerCfg, error) {
@@ -110,19 +111,19 @@ func NewAgentConfig() (AgentCfg, error) {
 	const defaultReportInterval uint64 = 10
 	const defaultPollInterval uint64 = 2
 	const defaultHashKey = ""
+	const defaultRateLimit = 0
 
 	var flagRunAddr string
 	var flagReportInterval uint64
 	var flagPollInterval uint64
 	var flagHashKey string
-
-	var ReportInterval uint64
-	var PollInterval uint64
+	var flagRateLimit uint64
 
 	flag.StringVar(&flagRunAddr, "a", defaultRunAddr, "address and port to run server")
 	flag.Uint64Var(&flagPollInterval, "p", defaultPollInterval, "data poll interval")
 	flag.Uint64Var(&flagReportInterval, "r", defaultReportInterval, "data report interval")
 	flag.StringVar(&flagHashKey, "k", defaultHashKey, "hash key")
+	flag.Uint64Var(&flagRateLimit, "l", defaultRateLimit, "data report interval")
 
 	flag.Parse()
 
@@ -132,23 +133,24 @@ func NewAgentConfig() (AgentCfg, error) {
 		cfg.Host = envRunAddr
 	}
 
-	ReportInterval = flagReportInterval
+	cfg.ReportInterval = flagReportInterval
 	envReportInterval, ok := os.LookupEnv("REPORT_INTERVAL")
 	if ok {
 		ReportInterval, err := strconv.ParseUint(envReportInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a report interval value: %w", ReportInterval, err)
+			return cfg, fmt.Errorf("failed to parse %s as a report interval value: %w", envReportInterval, err)
 		}
+		cfg.ReportInterval = ReportInterval
 	}
-	cfg.ReportInterval = ReportInterval
 
-	PollInterval = flagPollInterval
+	cfg.PollInterval = flagPollInterval
 	envPollInterval, ok := os.LookupEnv("POLL_INTERVAL")
 	if ok {
 		PollInterval, err := strconv.ParseUint(envPollInterval, 10, 64)
 		if err != nil {
-			return cfg, fmt.Errorf("failed to parse %d as a poll interval value: %w", PollInterval, err)
+			return cfg, fmt.Errorf("failed to parse %s as a poll interval value: %w", envPollInterval, err)
 		}
+		cfg.PollInterval = PollInterval
 	}
 
 	cfg.HashKey = flagHashKey
@@ -156,7 +158,14 @@ func NewAgentConfig() (AgentCfg, error) {
 	if ok {
 		cfg.HashKey = envHashKey
 	}
-
-	cfg.PollInterval = PollInterval
+	cfg.RateLimit = flagRateLimit
+	envRateLimit, ok := os.LookupEnv("RATE_LIMIT")
+	if ok {
+		RateLimit, err := strconv.ParseUint(envRateLimit, 10, 64)
+		if err != nil {
+			return cfg, fmt.Errorf("failed to parse %s as a rate limit value: %w", envRateLimit, err)
+		}
+		cfg.RateLimit = RateLimit
+	}
 	return cfg, nil
 }
