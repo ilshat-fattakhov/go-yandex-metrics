@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"go-yandex-metrics/internal/config"
-	logger "go-yandex-metrics/internal/server/middleware"
 )
 
 type FileStorage struct {
@@ -59,20 +58,13 @@ func LoadMetrics(f *FileStorage, filePath string) error {
 }
 
 func SaveMetrics(s Storage, filePath string) error {
-	lg, err := logger.InitLogger()
-	if err != nil {
-		return fmt.Errorf("failed to init logger: %w", err)
-	}
-
 	data, err := json.MarshalIndent(s, "", "   ")
 	if err != nil {
-		lg.Info("cannot marshal storage")
 		return fmt.Errorf("cannot marshal storage: %w", err)
 	}
 
 	err = os.WriteFile(filePath, data, 0o600)
 	if err != nil {
-		lg.Info("cannot save storage to file")
 		return fmt.Errorf("cannot save storage to file: %w", err)
 	}
 

@@ -14,8 +14,6 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
-
-	"go.uber.org/zap"
 )
 
 const (
@@ -126,7 +124,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		case float64:
 			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
 		default:
-			a.logger.Warn(GaugeType + " is not float64")
 			return errors.New(GaugeType + " is not float64")
 		}
 	case CounterType:
@@ -134,7 +131,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		case int64:
 			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
 		default:
-			a.logger.Warn(CounterType + " is not int64")
 			return errors.New(CounterType + " is not int64")
 		}
 	}
@@ -178,7 +174,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 
 	err = resp.Body.Close()
 	if err != nil {
-		a.logger.Info("error closing response body: %w", zap.Error(err))
 		return fmt.Errorf("error closing response body: %w", err)
 	}
 
