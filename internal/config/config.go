@@ -167,5 +167,6 @@ func NewAgentConfig() (AgentCfg, error) {
 		}
 		cfg.RateLimit = RateLimit
 	}
+
 	return cfg, nil
 }

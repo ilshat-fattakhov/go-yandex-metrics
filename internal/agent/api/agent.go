@@ -80,7 +80,10 @@ func (a *Agent) Start() error {
 		case <-tickerSave.C:
 			a.saveMetrics()
 		case <-tickerSend.C:
-			a.sendMetrics()
+			err := a.sendMetrics()
+			if err != nil {
+				a.logger.Error("failed to send metrics", zap.Error(err))
+			}
 		case <-batchSend.C:
 			err := a.sendMetricsBatch()
 			if err != nil {
