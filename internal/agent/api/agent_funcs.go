@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
+
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 const (
@@ -72,6 +74,12 @@ func (a *Agent) saveMetrics() {
 	a.store.Gauge["TotalAlloc"] = float64(m.TotalAlloc)
 	a.store.Gauge["RandomValue"] = rand.Float64()
 	a.store.Counter["PollCount"]++
+
+	v, _ := mem.VirtualMemory()
+
+	a.store.Gauge["TotalMemory"] = float64(v.Total)
+	a.store.Gauge["FreeMemory"] = float64(v.Free)
+	a.store.Gauge["CPUutilization1"] = float64(v.UsedPercent)
 
 	a.store.memLock.Unlock()
 }
@@ -153,12 +161,15 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	}
 	req.Close = true
 
+	agentHash := a.calcHash(buf)
+	if a.cfg.HashKey != "" {
+		req.Header.Add("HashSHA256", agentHash)
+	}
+
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
 	resp, err := a.client.Do(req)
-
 	if err != nil {
 		return fmt.Errorf("failed to do a request, server is probably down:  %w", err)
 	}
