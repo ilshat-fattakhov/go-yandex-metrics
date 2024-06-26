@@ -111,7 +111,7 @@ func NewAgentConfig() (AgentCfg, error) {
 	const defaultReportInterval uint64 = 10
 	const defaultPollInterval uint64 = 2
 	const defaultHashKey = ""
-	const defaultRateLimit = 0
+	const defaultRateLimit = 1
 
 	var flagRunAddr string
 	var flagReportInterval uint64
