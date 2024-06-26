@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
+	"sync"
 
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -39,7 +40,10 @@ type MetricsToSend struct {
 	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-func (a *Agent) saveMetrics() {
+var mu = &sync.Mutex{}
+var muBatch = &sync.Mutex{}
+
+func (a *Agent) saveMetrics() error {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
@@ -82,9 +86,11 @@ func (a *Agent) saveMetrics() {
 	a.store.Gauge["CPUutilization1"] = float64(v.UsedPercent)
 
 	a.store.memLock.Unlock()
+	return nil
 }
 
 func (a *Agent) sendMetrics() error {
+	mu.Lock()
 	for n, v := range a.store.Gauge {
 		err := a.sendData(v, n, GaugeType, http.MethodPost)
 		if err != nil {
@@ -100,19 +106,26 @@ func (a *Agent) sendMetrics() error {
 	}
 
 	a.store.Counter["PollCount"] = 0
+	mu.Unlock()
 	return nil
 }
+
 func (a *Agent) sendMetricsBatch() error {
+	muBatch.Lock()
 	metrics := []MetricsToSend{}
 
 	for n, v := range a.store.Gauge {
 		m := MetricsToSend{Value: v, Delta: 0, MType: GaugeType, ID: n}
+		mu.Lock()
 		metrics = append(metrics, m)
+		mu.Unlock()
 	}
 
 	for n, v := range a.store.Counter {
 		m := MetricsToSend{Value: 0, Delta: v, MType: CounterType, ID: n}
+		mu.Lock()
 		metrics = append(metrics, m)
+		mu.Unlock()
 	}
 
 	err := a.sendBatch(metrics, http.MethodPost)
@@ -120,9 +133,10 @@ func (a *Agent) sendMetricsBatch() error {
 		return fmt.Errorf("an error occured sending data in a batch: %w", err)
 	}
 	a.store.Counter["PollCount"] = 0
-
+	muBatch.Unlock()
 	return nil
 }
+
 func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	var metric = Metrics{}
 

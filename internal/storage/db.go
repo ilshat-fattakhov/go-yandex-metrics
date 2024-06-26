@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"go-yandex-metrics/internal/config"
@@ -21,6 +22,7 @@ type DBStorage struct {
 }
 
 type Metric struct {
+	memLock     *sync.Mutex
 	metricName  string
 	metricValue string
 }
@@ -165,7 +167,9 @@ func (d *DBStorage) getMetrics(mType string) (string, error) {
 				return "", fmt.Errorf("cannot get counter metric: %w", err)
 			}
 		}
+		m.memLock.Lock()
 		metrics = append(metrics, m)
+		m.memLock.Unlock()
 	}
 
 	err = rows.Err()
