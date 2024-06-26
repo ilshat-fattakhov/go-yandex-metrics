@@ -50,7 +50,7 @@ type CompressReader struct {
 func NewCompressReader(r io.ReadCloser) (*CompressReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create newCompressReade: %w", err)
+		return nil, fmt.Errorf("cannot create newCompressReader: %w", err)
 	}
 
 	return &CompressReader{
