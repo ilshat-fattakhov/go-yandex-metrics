@@ -69,7 +69,7 @@ func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if acceptsGzip {
-		w.Header().Set(contentEncoding, gzipStr)
+		w.Header().Set(contentEncStr, gzipStr)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -133,7 +133,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 		contentEncoding := r.Header.Get(acceptEncoding)
 		acceptsGzip := strings.Contains(contentEncoding, gzipStr)
 
-		if requestedJSON {
+		if r.RequestURI == "/value/" {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				s.logger.Info("error reading request body", zap.Error(err))
@@ -183,17 +183,33 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 					metric = Metrics{ID: m.ID, MType: m.MType, Delta: &mValue}
 				}
 
-				w.Header().Set(contentTypeStr, applicationJSON)
+				if requestedJSON {
+					w.Header().Set(contentTypeStr, applicationJSON)
+				} else {
+					w.Header().Set(contentTypeStr, "text/html")
+				}
+				w.Header().Set("charset", "utf-8")
+
+				var buf bytes.Buffer
+				err := json.NewEncoder(&buf).Encode(metric)
+				if err != nil {
+					s.logger.Info("failed to JSON encode metric: %w", zap.Error(err))
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
 				if acceptsGzip {
 					w.Header().Set(contentEncStr, gzipStr)
 				}
 
-				err = json.NewEncoder(w).Encode(metric)
+				_, err = w.Write(buf.Bytes())
 				if err != nil {
-					s.logger.Info("failed to JSON encode gauge metric: %w", zap.Error(err))
+					s.logger.Info("failed to write to ResponseWriter: %w", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
+
+				w.Header().Set(contentLengthStr, strconv.Itoa(buf.Len()))
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -230,8 +246,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set(contentTypeStr, "text/html")
-			w.Header().Set("charset", "utf-8")
+
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -349,6 +364,9 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					s.logger.Info("error saving metric: %w", zap.Error(err))
 					w.WriteHeader(http.StatusBadRequest)
 					return
+				}
+				if acceptsGzip {
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 				w.WriteHeader(http.StatusOK)
 			} else {
