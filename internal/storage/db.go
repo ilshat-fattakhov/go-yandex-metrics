@@ -6,15 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
-
-	"go-yandex-metrics/internal/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"go-yandex-metrics/internal/config"
 )
 
 type DBStorage struct {
@@ -22,7 +21,6 @@ type DBStorage struct {
 }
 
 type Metric struct {
-	memLock     *sync.Mutex
 	metricName  string
 	metricValue string
 }
@@ -167,9 +165,7 @@ func (d *DBStorage) getMetrics(mType string) (string, error) {
 				return "", fmt.Errorf("cannot get counter metric: %w", err)
 			}
 		}
-		m.memLock.Lock()
 		metrics = append(metrics, m)
-		m.memLock.Unlock()
 	}
 
 	err = rows.Err()
