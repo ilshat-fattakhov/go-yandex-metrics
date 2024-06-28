@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 
 	"go-yandex-metrics/internal/config"
@@ -33,8 +32,11 @@ func NewStore(cfg *config.ServerCfg) (Storage, error) {
 			return nil, fmt.Errorf("error creating memory storage: %w", err)
 		}
 		return store, nil
-
 	default:
-		return nil, errors.New("error creating storage")
+		store, err := NewMemStorage(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("error creating memory storage: %w", err)
+		}
+		return store, nil
 	}
 }
