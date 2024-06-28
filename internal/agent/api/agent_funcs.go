@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -14,7 +13,6 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
-	"sync"
 
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -40,14 +38,12 @@ type MetricsToSend struct {
 	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-var mu = &sync.Mutex{}
-var muBatch = &sync.Mutex{}
-
-func (a *Agent) saveMetrics() error {
+func (a *Agent) saveMetrics() {
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
 
 	a.store.memLock.Lock()
+	defer a.store.memLock.Unlock()
 
 	a.store.Gauge["Alloc"] = float64(m.Alloc)
 	a.store.Gauge["BuckHashSys"] = float64(m.BuckHashSys)
@@ -84,124 +80,14 @@ func (a *Agent) saveMetrics() error {
 	a.store.Gauge["TotalMemory"] = float64(v.Total)
 	a.store.Gauge["FreeMemory"] = float64(v.Free)
 	a.store.Gauge["CPUutilization1"] = float64(v.UsedPercent)
-
-	a.store.memLock.Unlock()
-	return nil
 }
 
-func (a *Agent) sendMetrics() error {
-	mu.Lock()
-	for n, v := range a.store.Gauge {
-		err := a.sendData(v, n, GaugeType, http.MethodPost)
-		if err != nil {
-			return fmt.Errorf("an error occured sending gauge data: %w", err)
-		}
-	}
-
-	for n, v := range a.store.Counter {
-		err := a.sendData(v, n, CounterType, http.MethodPost)
-		if err != nil {
-			return fmt.Errorf("an error occured sending counter data: %w", err)
-		}
-	}
-
-	a.store.Counter["PollCount"] = 0
-	mu.Unlock()
-	return nil
-}
-
-func (a *Agent) sendMetricsBatch() error {
-	muBatch.Lock()
-	metrics := []MetricsToSend{}
-
-	for n, v := range a.store.Gauge {
-		m := MetricsToSend{Value: v, Delta: 0, MType: GaugeType, ID: n}
-		mu.Lock()
-		metrics = append(metrics, m)
-		mu.Unlock()
-	}
-
-	for n, v := range a.store.Counter {
-		m := MetricsToSend{Value: 0, Delta: v, MType: CounterType, ID: n}
-		mu.Lock()
-		metrics = append(metrics, m)
-		mu.Unlock()
-	}
-
+func (a *Agent) sendMetricsBatch(metrics []MetricsToSend) error {
 	err := a.sendBatch(metrics, http.MethodPost)
 	if err != nil {
 		return fmt.Errorf("an error occured sending data in a batch: %w", err)
 	}
 	a.store.Counter["PollCount"] = 0
-	muBatch.Unlock()
-	return nil
-}
-
-func (a *Agent) sendData(v any, n string, mType string, method string) error {
-	var metric = Metrics{}
-
-	switch mType {
-	case GaugeType:
-		switch i := v.(type) {
-		case float64:
-			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
-		default:
-			return errors.New(GaugeType + " is not float64")
-		}
-	case CounterType:
-		switch i := v.(type) {
-		case int64:
-			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
-		default:
-			return errors.New(CounterType + " is not int64")
-		}
-	}
-
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(metric)
-
-	if err != nil {
-		return fmt.Errorf("failed to JSON encode gauge metric: %w", err)
-	}
-
-	sendURL, err := url.JoinPath("http://", a.cfg.Host, updatePath, "/")
-	if err != nil {
-		return fmt.Errorf("failed to join path parts for gauge JSON POST URL: %w", err)
-	}
-
-	req, err := http.NewRequest(method, sendURL, &buf)
-	if err != nil {
-		return fmt.Errorf("failed to create a request: %w", err)
-	}
-	req.Close = true
-
-	agentHash := a.calcHash(buf)
-	if a.cfg.HashKey != "" {
-		req.Header.Add("HashSHA256", agentHash)
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to do a request, server is probably down:  %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP status code is not 200 OK: %w", err)
-	}
-
-	_, err = io.Copy(io.Discard, resp.Body)
-	if err != nil {
-		return fmt.Errorf("error copying response body: %w", err)
-	}
-
-	err = resp.Body.Close()
-	if err != nil {
-		return fmt.Errorf("error closing response body: %w", err)
-	}
-
 	return nil
 }
 
@@ -251,6 +137,26 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 	}
 
 	return nil
+}
+
+func (a *Agent) getMetricsToSend() []MetricsToSend {
+	metrics := []MetricsToSend{}
+
+	a.store.memLock.Lock()
+	defer a.store.memLock.Unlock()
+
+	for n, v := range a.store.Gauge {
+		m := MetricsToSend{Value: v, Delta: 0, MType: GaugeType, ID: n}
+		metrics = append(metrics, m)
+	}
+
+	for n, v := range a.store.Counter {
+		m := MetricsToSend{Value: 0, Delta: v, MType: CounterType, ID: n}
+		metrics = append(metrics, m)
+	}
+	a.store.Counter["PollCount"] = 0
+
+	return metrics
 }
 
 func (a *Agent) calcHash(buf bytes.Buffer) string {

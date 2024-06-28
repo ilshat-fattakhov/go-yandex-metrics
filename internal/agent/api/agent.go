@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -57,31 +58,40 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
 	return agt, nil
 }
 
-func Backoff(minValue, maxValue time.Duration, attemptNum int, resp *http.Response) time.Duration {
-	switch attemptNum {
-	case 0:
-		return 1 * time.Second
-	case 1:
-		return 3 * time.Second
-	case 2:
-		return 5 * time.Second
-	default:
-		return 3 * time.Second
-	}
-}
-
 func (a *Agent) Start() error {
 	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
 	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
-	batchSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
+
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
+	fmt.Println(a.cfg)
+	wg := &sync.WaitGroup{}
+	maxJobs := int(a.cfg.RateLimit)
+	jobs := make(chan []MetricsToSend, maxJobs)
+	for range maxJobs {
+		go func() {
+			defer wg.Done()
+			for m := range jobs {
+				err := a.sendMetricsBatch(m)
+				if err != nil {
+					a.logger.Info("failed to send metrics", zap.Error(err))
+				}
+			}
+		}()
+		wg.Add(1)
+	}
+
 	for {
 		select {
-		case <-tickerSave.C:
-			a.runGoFunc(a.saveMetrics)
 		case <-tickerSend.C:
-			a.runGoFunc(a.sendMetrics)
-		case <-batchSend.C:
-			a.runGoFunc(a.sendMetricsBatch)
+			metrics := a.getMetricsToSend()
+			jobs <- metrics
+		case <-tickerSave.C:
+			go a.saveMetrics()
+		case <-ctx.Done():
+			close(jobs)
+			wg.Wait()
+			return nil
 		}
 	}
 }
@@ -94,30 +104,15 @@ func NewAgentMemStorage(cfg config.AgentCfg) (*MemStorage, error) {
 	}, nil
 }
 
-func worker(funcToRun func() error, jobs <-chan int, results chan<- int) error {
-	for j := range jobs {
-		err := funcToRun()
-		if err != nil {
-			return fmt.Errorf("an error occured running a go function: %w", err)
-		}
-		results <- j + 1
+func Backoff(minValue, maxValue time.Duration, attemptNum int, resp *http.Response) time.Duration {
+	switch attemptNum {
+	case 0:
+		return 1 * time.Second
+	case 1:
+		return 3 * time.Second
+	case 2:
+		return 5 * time.Second
+	default:
+		return 3 * time.Second
 	}
-	return nil
-}
-
-func (a *Agent) runGoFunc(funcToRun func() error) {
-	const numJobs = 3
-	jobs := make(chan int, numJobs)
-	results := make(chan int, numJobs)
-	// создаем и запускаем a.cfg.RateLimit воркера, это и есть пул,
-	numWorkers := int(a.cfg.RateLimit)
-	fmt.Println("numWorers:", numWorkers)
-	for w := 1; w <= numWorkers; w++ {
-		go worker(funcToRun, jobs, results)
-	}
-
-	for j := 1; j <= numJobs; j++ {
-		jobs <- j
-	}
-	close(jobs)
 }
