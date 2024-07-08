@@ -16,6 +16,7 @@ import (
 
 type AgentCfg struct {
 	Host           string
+	HashKey        string
 	PollInterval   uint64
 	ReportInterval uint64
 }

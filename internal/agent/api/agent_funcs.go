@@ -109,6 +109,11 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 	}
 	req.Close = true
 
+	agentHash := a.calcHash(buf)
+	if a.cfg.HashKey != "" {
+		req.Header.Add("HashSHA256", agentHash)
+	}
+
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
