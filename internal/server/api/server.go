@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
@@ -23,11 +24,12 @@ type Server struct {
 	tpl    *template.Template
 	logger *zap.Logger
 	store  storage.Storage
-	cfg    config.ServerCfg
+	cfg    *config.ServerCfg
 }
 
 type ServerCfg struct {
 	Host       string `json:"host"`
+	HashKey    string
 	StorageCfg StorageCfg
 }
 
@@ -37,7 +39,7 @@ type StorageCfg struct {
 	Restore         bool   `json:"restore"`
 }
 
-func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
+func NewServer(cfg *config.ServerCfg, store storage.Storage) (*Server, error) {
 	lg, err := logger.InitLogger()
 	if err != nil {
 		return nil, fmt.Errorf("failed to init logger: %w", err)
@@ -61,7 +63,7 @@ func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
 	return srv, nil
 }
 
-func (s *Server) Start(cfg config.ServerCfg) error {
+func (s *Server) Start(cfg *config.ServerCfg) error {
 	server := http.Server{
 		Addr:    cfg.Host,
 		Handler: s.router,
@@ -132,7 +134,7 @@ func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
 				ow = cw
 				defer func() {
 					if err := cw.Close(); err != nil {
-						s.logger.Info("failed to close newCompressWriter: %w", zap.Error(err))
+						s.logger.Info("failed to close newCompressWriter", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -144,14 +146,14 @@ func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
 			if sendsGzip {
 				cr, err := gzip.NewCompressReader(r.Body)
 				if err != nil {
-					s.logger.Info("failed to create newCompressReader:", zap.Error(err))
+					s.logger.Info("failed to create newCompressReader", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				r.Body = cr
 				defer func() {
 					if err := cr.Close(); err != nil {
-						s.logger.Info("failed to close newCompressReader:", zap.Error(err))
+						s.logger.Info("failed to close newCompressReader", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}

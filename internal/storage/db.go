@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"time"
 
-	"go-yandex-metrics/internal/config"
-
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"go-yandex-metrics/internal/config"
 )
 
 type DBStorage struct {
