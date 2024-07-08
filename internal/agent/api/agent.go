@@ -3,10 +3,10 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"go.uber.org/zap"
 
 	"go-yandex-metrics/internal/config"
@@ -15,7 +15,6 @@ import (
 
 type AgentCfg struct {
 	Host           string
-	HashKey        string
 	PollInterval   uint64
 	ReportInterval uint64
 }
@@ -39,16 +38,35 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
 		return nil, fmt.Errorf("failed to init logger: %w", err)
 	}
 
+	retClient := retryablehttp.NewClient()
+	retClient.Backoff = Backoff
+
+	retClient.RetryMax = 3
+	retClient.RetryWaitMin = 1 * time.Second
+	retClient.RetryWaitMax = 5 * time.Second
+
+	stClient := retClient.StandardClient()
+
 	agt := &Agent{
 		logger: lg,
 		store:  store,
-		client: &http.Client{
-			Timeout:   time.Duration(1) * time.Second,
-			Transport: &http.Transport{},
-		},
-		cfg: cfg,
+		client: stClient,
+		cfg:    cfg,
 	}
 	return agt, nil
+}
+
+func Backoff(minValue, maxValue time.Duration, attemptNum int, resp *http.Response) time.Duration {
+	switch attemptNum {
+	case 0:
+		return 1 * time.Second
+	case 1:
+		return 3 * time.Second
+	case 2:
+		return 5 * time.Second
+	default:
+		return 3 * time.Second
+	}
 }
 
 func (a *Agent) Start() error {
@@ -61,35 +79,11 @@ func (a *Agent) Start() error {
 		case <-tickerSave.C:
 			a.saveMetrics()
 		case <-tickerSend.C:
-			err := a.sendMetrics()
-			if err != nil {
-				a.logger.Error("failed to send metrics, trying again: %w", zap.Error(err))
-				if a.cfg.ReportInterval > 1 {
-					for i := 1; i <= 5; i += 2 {
-						if i > int(a.cfg.ReportInterval) {
-							break
-						}
-						time.Sleep(time.Duration(i) * time.Second)
-						err := a.sendMetrics()
-						if err != nil {
-							a.logger.Error("failed to send metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
-						}
-					}
-				}
-			}
+			a.sendMetrics()
 		case <-batchSend.C:
 			err := a.sendMetricsBatch()
-			i := 1
-			for err != nil {
-				time.Sleep(time.Duration(i) * time.Second)
-				err = a.sendMetricsBatch()
-				i += 2
-				if i >= 5 || i > int(a.cfg.ReportInterval) {
-					break
-				}
-			}
 			if err != nil {
-				a.logger.Error("failed to send a batch of metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
+				a.logger.Error("failed to send a batch of metrics", zap.Error(err))
 			}
 		}
 	}

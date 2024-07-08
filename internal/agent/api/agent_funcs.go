@@ -2,9 +2,6 @@ package api
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,10 +30,10 @@ type Metrics struct {
 }
 
 type MetricsToSend struct {
-	MType string  `json:"type"`            // параметр, принимающий значение gauge или counter
-	ID    string  `json:"id"`              // имя метрики
-	Delta int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	MType string  `json:"type"`
+	ID    string  `json:"id"`
+	Delta int64   `json:"delta,omitempty"`
+	Value float64 `json:"value,omitempty"`
 }
 
 func (a *Agent) saveMetrics() {
@@ -78,24 +75,24 @@ func (a *Agent) saveMetrics() {
 	a.store.memLock.Unlock()
 }
 
-func (a *Agent) sendMetrics() error {
+func (a *Agent) sendMetrics() {
 	for n, v := range a.store.Gauge {
 		err := a.sendData(v, n, GaugeType, http.MethodPost)
 		if err != nil {
-			return fmt.Errorf("an error occured sending gauge data: %w", err)
+			a.logger.Info("an error occured sending gauge data", zap.Error(err))
 		}
 	}
 
 	for n, v := range a.store.Counter {
 		err := a.sendData(v, n, CounterType, http.MethodPost)
 		if err != nil {
-			return fmt.Errorf("an error occured sending counter data: %w", err)
+			a.logger.Info("an error occured sending counter data", zap.Error(err))
 		}
 	}
 
 	a.store.Counter["PollCount"] = 0
-	return nil
 }
+
 func (a *Agent) sendMetricsBatch() error {
 	metrics := []MetricsToSend{}
 
@@ -117,6 +114,7 @@ func (a *Agent) sendMetricsBatch() error {
 
 	return nil
 }
+
 func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	var metric = Metrics{}
 
@@ -126,7 +124,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		case float64:
 			metric = Metrics{ID: n, MType: GaugeType, Value: &i}
 		default:
-			a.logger.Warn(GaugeType + " is not float64")
 			return errors.New(GaugeType + " is not float64")
 		}
 	case CounterType:
@@ -134,7 +131,6 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 		case int64:
 			metric = Metrics{ID: n, MType: CounterType, Delta: &i}
 		default:
-			a.logger.Warn(CounterType + " is not int64")
 			return errors.New(CounterType + " is not int64")
 		}
 	}
@@ -158,11 +154,9 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 	req.Close = true
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
 	resp, err := a.client.Do(req)
-
 	if err != nil {
 		return fmt.Errorf("failed to do a request, server is probably down:  %w", err)
 	}
@@ -178,7 +172,7 @@ func (a *Agent) sendData(v any, n string, mType string, method string) error {
 
 	err = resp.Body.Close()
 	if err != nil {
-		a.logger.Info("error closing response body: %w", zap.Error(err))
+		a.logger.Info("error closing response body:", zap.Error(err))
 		return fmt.Errorf("error closing response body: %w", err)
 	}
 
@@ -203,11 +197,6 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 	}
 	req.Close = true
 
-	agentHash := a.calcHash(buf)
-	if a.cfg.HashKey != "" {
-		req.Header.Add("HashSHA256", agentHash)
-	}
-
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
 
@@ -231,14 +220,4 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 	}
 
 	return nil
-}
-
-func (a *Agent) calcHash(buf bytes.Buffer) string {
-	var secretkey = []byte(a.cfg.HashKey)
-	hashSHA256 := hmac.New(sha256.New, secretkey)
-
-	hashSHA256.Write(buf.Bytes())
-	bs := hashSHA256.Sum(nil)
-
-	return hex.EncodeToString(bs)
 }

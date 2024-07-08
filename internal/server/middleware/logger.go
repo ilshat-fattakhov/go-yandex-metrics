@@ -12,7 +12,6 @@ import (
 )
 
 func InitLogger() (*zap.Logger, error) {
-	// logger, err := zap.NewProduction()
 	cfg := zap.NewProductionConfig()
 	cfg.OutputPaths = []string{
 		"/tmp/metrics.log",
