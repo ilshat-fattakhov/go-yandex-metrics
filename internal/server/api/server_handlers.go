@@ -3,11 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -44,10 +40,10 @@ type Metrics struct {
 }
 
 type MetricsToSend struct {
-	MType string  `json:"type"`            // параметр, принимающий значение gauge или counter
-	ID    string  `json:"id"`              // имя метрики
-	Delta int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	MType string  `json:"type"`
+	ID    string  `json:"id"`
+	Delta int64   `json:"delta,omitempty"`
+	Value float64 `json:"value,omitempty"`
 }
 
 func (s *Server) PingHandler(w http.ResponseWriter, r *http.Request) {
@@ -281,8 +277,6 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 				return
 			}
 
-			s.verifyHashHeader(r, w, body)
-
 			mType := m.MType
 			mName := m.ID
 			var mValueFloat string
@@ -350,7 +344,6 @@ func (s *Server) UpdateHandler(lg *zap.Logger) http.HandlerFunc {
 					return
 				}
 
-				s.addHashHeader(w, buf.Bytes())
 				w.Header().Set(contentLengthStr, strconv.Itoa(buf.Len()))
 				w.WriteHeader(http.StatusOK)
 				return
@@ -405,8 +398,6 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 			return
 		}
 
-		s.verifyHashHeader(r, w, body)
-
 		for _, b := range m {
 			var mValueFloat string
 			var mValueInt string
@@ -442,50 +433,8 @@ func (s *Server) UpdatesHandler(lg *zap.Logger) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		s.addHashHeader(w, body)
+
 		w.Header().Set(contentLengthStr, strconv.Itoa(len(body)))
 		w.WriteHeader(http.StatusOK)
 	}
-}
-
-func (s *Server) verifyHashHeader(r *http.Request, w http.ResponseWriter, body []byte) {
-	var requestHash = ""
-	if v, ok := r.Header["Hashsha256"]; ok {
-		requestHash = v[0]
-	}
-	if requestHash != "" {
-		buf := bytes.NewBuffer(body)
-		severSideHash := s.calcHash(*buf)
-
-		if severSideHash != requestHash {
-			// fmt.Println("Hashes are NOT!!! the same")
-			// fmt.Println("In :", requestHash)
-			// fmt.Println("Out:", severSideHash)
-			s.logger.Info("wrong hash signature")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		} else {
-			fmt.Println("Hashes are the same")
-			fmt.Println("In :", requestHash)
-			fmt.Println("Out:", severSideHash)
-		}
-	}
-}
-
-func (s *Server) addHashHeader(w http.ResponseWriter, body []byte) {
-	if s.cfg.HashKey != "" {
-		buf := bytes.NewBuffer(body)
-		responseHash := s.calcHash(*buf)
-		w.Header().Add("HashSHA256", responseHash)
-	}
-}
-
-func (s *Server) calcHash(buf bytes.Buffer) string {
-	var secretkey = []byte(s.cfg.HashKey)
-	hashSHA256 := hmac.New(sha256.New, secretkey)
-
-	hashSHA256.Write(buf.Bytes())
-	bs := hashSHA256.Sum(nil)
-
-	return hex.EncodeToString(bs)
 }

@@ -16,7 +16,6 @@ import (
 
 type AgentCfg struct {
 	Host           string
-	HashKey        string
 	PollInterval   uint64
 	ReportInterval uint64
 }
@@ -64,7 +63,7 @@ func (a *Agent) Start() error {
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	defer cancelCtx()
-	fmt.Println(a.cfg)
+
 	wg := &sync.WaitGroup{}
 	maxJobs := int(a.cfg.RateLimit)
 	jobs := make(chan []MetricsToSend, maxJobs)

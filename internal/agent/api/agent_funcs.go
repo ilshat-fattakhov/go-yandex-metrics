@@ -32,10 +32,10 @@ type Metrics struct {
 }
 
 type MetricsToSend struct {
-	MType string  `json:"type"`            // параметр, принимающий значение gauge или counter
-	ID    string  `json:"id"`              // имя метрики
-	Delta int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	MType string  `json:"type"`
+	ID    string  `json:"id"`
+	Delta int64   `json:"delta,omitempty"`
+	Value float64 `json:"value,omitempty"`
 }
 
 func (a *Agent) saveMetrics() {
@@ -108,11 +108,6 @@ func (a *Agent) sendBatch(batch []MetricsToSend, method string) error {
 		return fmt.Errorf("failed to create a request: %w", err)
 	}
 	req.Close = true
-
-	agentHash := a.calcHash(buf)
-	if a.cfg.HashKey != "" {
-		req.Header.Add("HashSHA256", agentHash)
-	}
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Set("Content-Length", strconv.Itoa(buf.Len()))

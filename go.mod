@@ -4,6 +4,7 @@ go 1.22.2
 
 require (
 	github.com/go-chi/chi/v5 v5.0.12
+	github.com/go-playground/assert v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/jackc/pgx/v5 v5.6.0
