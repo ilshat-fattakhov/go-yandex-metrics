@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 type AgentCfg struct {
 	Host           string
+	HashKey        string
 	PollInterval   uint64
 	ReportInterval uint64
 }
@@ -79,7 +81,22 @@ func (a *Agent) Start() error {
 		case <-tickerSave.C:
 			a.saveMetrics()
 		case <-tickerSend.C:
-			a.sendMetrics()
+			err := a.sendMetrics()
+			if err != nil {
+				a.logger.Error("failed to send metrics, trying again: %w", zap.Error(err))
+				if a.cfg.ReportInterval > 1 {
+					for i := 1; i <= 5; i += 2 {
+						if i > int(a.cfg.ReportInterval) {
+							break
+						}
+						time.Sleep(time.Duration(i) * time.Second)
+						err := a.sendMetrics()
+						if err != nil {
+							a.logger.Error("failed to send metrics after "+strconv.Itoa(i)+" second(s)", zap.Error(err))
+						}
+					}
+				}
+			}
 		case <-batchSend.C:
 			err := a.sendMetricsBatch()
 			if err != nil {
