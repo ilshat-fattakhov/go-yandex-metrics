@@ -26,12 +26,12 @@ func run() error {
 		return fmt.Errorf("failed to create storage: %w", err)
 	}
 
-	server, err := api.NewServer(&cfg, store)
+	server, err := api.NewServer(cfg, store)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}
 
-	err = server.Start(&cfg)
+	err = server.Start(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
