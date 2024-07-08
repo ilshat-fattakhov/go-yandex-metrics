@@ -24,7 +24,7 @@ type Server struct {
 	tpl    *template.Template
 	logger *zap.Logger
 	store  storage.Storage
-	cfg    config.ServerCfg
+	cfg    *config.ServerCfg
 }
 
 type ServerCfg struct {
@@ -39,7 +39,7 @@ type StorageCfg struct {
 	Restore         bool   `json:"restore"`
 }
 
-func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
+func NewServer(cfg *config.ServerCfg, store storage.Storage) (*Server, error) {
 	lg, err := logger.InitLogger()
 	if err != nil {
 		return nil, fmt.Errorf("failed to init logger: %w", err)
@@ -63,7 +63,7 @@ func NewServer(cfg config.ServerCfg, store storage.Storage) (*Server, error) {
 	return srv, nil
 }
 
-func (s *Server) Start(cfg config.ServerCfg) error {
+func (s *Server) Start(cfg *config.ServerCfg) error {
 	server := http.Server{
 		Addr:    cfg.Host,
 		Handler: s.router,
