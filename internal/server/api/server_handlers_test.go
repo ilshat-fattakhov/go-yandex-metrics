@@ -1,6 +1,8 @@
 package api
 
 import (
+	logger "go-yandex-metrics/internal/server/middleware"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -70,12 +72,8 @@ func TestServer_GetHandler(t *testing.T) {
 }
 
 func TestServer_UpdateHandler(t *testing.T) {
-	type args struct {
-		lg *zap.Logger
-	}
 	type want struct {
-		code int
-
+		code        int
 		contentType string
 	}
 	type httpParams struct {
@@ -84,35 +82,36 @@ func TestServer_UpdateHandler(t *testing.T) {
 	}
 	tests := []struct {
 		s       *Server
-		args    args
 		name    string
 		params  httpParams
 		want    want
 		comment string
 	}{
 		{
-			name: "Test 405 Method Not Allowed",
+			name: "Test 400 Bad Request",
 			params: httpParams{
-				url:    "/update/counter/PollCount/1",
-				method: "GET",
+				url:    "/update/wrongName/test/1",
+				method: "POST",
 			},
 			want: want{
-				code:        405,
+				code:        400,
 				contentType: "text/plain",
 			},
-			comment: "Принимать метрики только по протоколу HTTP методом POST",
+			comment: "При попытке передать запрос с некорректным типом метрики или значением возвращать http.StatusBadRequest",
 		},
+	}
+	lg, err := logger.InitLogger()
+	if err != nil {
+		log.Fatal("failed to init logger: %w", err)
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.params.method, tt.params.url, http.NoBody)
 			rr := httptest.NewRecorder()
-			handler := tt.s.UpdateHandler(tt.s.logger)
+
+			handler := tt.s.UpdateHandler(lg)
 			handler.ServeHTTP(rr, req)
-			if status := rr.Code; status != http.StatusOK {
-				t.Errorf("Handler returned wrong status code. Expected: %d. Got: %d.", http.StatusOK, status)
-			}
-			tt.s.UpdateHandler(tt.args.lg)
+
 			assert.Equal(t, tt.want.code, rr.Code)
 		})
 	}

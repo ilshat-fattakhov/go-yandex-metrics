@@ -134,7 +134,7 @@ func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
 				ow = cw
 				defer func() {
 					if err := cw.Close(); err != nil {
-						s.logger.Info("failed to close newCompressWriter: %w", zap.Error(err))
+						s.logger.Info("failed to close newCompressWriter", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -146,14 +146,14 @@ func (s *Server) GzipMiddleware() func(next http.Handler) http.Handler {
 			if sendsGzip {
 				cr, err := gzip.NewCompressReader(r.Body)
 				if err != nil {
-					s.logger.Info("failed to create newCompressReader:", zap.Error(err))
+					s.logger.Info("failed to create newCompressReader", zap.Error(err))
 					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				r.Body = cr
 				defer func() {
 					if err := cr.Close(); err != nil {
-						s.logger.Info("failed to close newCompressReader:", zap.Error(err))
+						s.logger.Info("failed to close newCompressReader", zap.Error(err))
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}

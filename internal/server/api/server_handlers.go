@@ -203,6 +203,7 @@ func (s *Server) GetHandler(lg *zap.Logger) http.HandlerFunc {
 
 				if acceptsGzip {
 					w.Header().Set(contentEncStr, gzipStr)
+					w.Header().Set(contentEncStr, gzipStr)
 				}
 
 				_, err = w.Write(buf.Bytes())
