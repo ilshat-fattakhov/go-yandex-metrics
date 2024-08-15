@@ -456,9 +456,6 @@ func (s *Server) verifyHashHeader(r *http.Request, w http.ResponseWriter, body [
 		severSideHash := s.calcHash(*buf)
 
 		if severSideHash != requestHash {
-			// fmt.Println("Hashes are NOT!!! the same")
-			// fmt.Println("In :", requestHash)
-			// fmt.Println("Out:", severSideHash)
 			s.logger.Info("wrong hash signature")
 			w.WriteHeader(http.StatusBadRequest)
 			return
