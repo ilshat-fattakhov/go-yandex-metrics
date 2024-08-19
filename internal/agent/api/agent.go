@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -15,6 +16,7 @@ import (
 
 type AgentCfg struct {
 	Host           string
+	HashKey        string
 	PollInterval   uint64
 	ReportInterval uint64
 }
@@ -45,15 +47,61 @@ func NewAgent(cfg config.AgentCfg, store *MemStorage) (*Agent, error) {
 	retClient.RetryWaitMin = 1 * time.Second
 	retClient.RetryWaitMax = 5 * time.Second
 
-	stClient := retClient.StandardClient()
+	stdClient := retClient.StandardClient()
 
 	agt := &Agent{
 		logger: lg,
 		store:  store,
-		client: stClient,
+		client: stdClient,
 		cfg:    cfg,
 	}
 	return agt, nil
+}
+
+func (a *Agent) Start() error {
+	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
+	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
+
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
+
+	wg := &sync.WaitGroup{}
+	maxJobs := int(a.cfg.RateLimit)
+	jobs := make(chan []MetricsToSend, maxJobs)
+	for range maxJobs {
+		go func() {
+			defer wg.Done()
+			for m := range jobs {
+				err := a.sendMetricsBatch(m)
+				if err != nil {
+					a.logger.Info("failed to send metrics", zap.Error(err))
+				}
+			}
+		}()
+		wg.Add(1)
+	}
+
+	for {
+		select {
+		case <-tickerSend.C:
+			metrics := a.getMetricsToSend()
+			jobs <- metrics
+		case <-tickerSave.C:
+			go a.saveMetrics()
+		case <-ctx.Done():
+			close(jobs)
+			wg.Wait()
+			return nil
+		}
+	}
+}
+
+func NewAgentMemStorage(cfg config.AgentCfg) (*MemStorage, error) {
+	return &MemStorage{
+		Gauge:   make(map[string]float64),
+		Counter: make(map[string]int64),
+		memLock: &sync.Mutex{},
+	}, nil
 }
 
 func Backoff(minValue, maxValue time.Duration, attemptNum int, resp *http.Response) time.Duration {
@@ -67,32 +115,4 @@ func Backoff(minValue, maxValue time.Duration, attemptNum int, resp *http.Respon
 	default:
 		return 3 * time.Second
 	}
-}
-
-func (a *Agent) Start() error {
-	tickerSave := time.NewTicker(time.Duration(a.cfg.PollInterval) * time.Second)
-	tickerSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
-	batchSend := time.NewTicker(time.Duration(a.cfg.ReportInterval) * time.Second)
-
-	for {
-		select {
-		case <-tickerSave.C:
-			a.saveMetrics()
-		case <-tickerSend.C:
-			a.sendMetrics()
-		case <-batchSend.C:
-			err := a.sendMetricsBatch()
-			if err != nil {
-				a.logger.Error("failed to send a batch of metrics", zap.Error(err))
-			}
-		}
-	}
-}
-
-func NewAgentMemStorage(cfg config.AgentCfg) (*MemStorage, error) {
-	return &MemStorage{
-		Gauge:   make(map[string]float64),
-		Counter: make(map[string]int64),
-		memLock: &sync.Mutex{},
-	}, nil
 }

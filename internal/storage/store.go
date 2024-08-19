@@ -32,6 +32,7 @@ func NewStore(cfg *config.ServerCfg) (Storage, error) {
 			return nil, fmt.Errorf("error creating memory storage: %w", err)
 		}
 		return store, nil
+
 	default:
 		store, err := NewMemStorage(cfg)
 		if err != nil {
